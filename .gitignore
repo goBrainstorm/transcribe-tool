@@ -1,0 +1,11 @@
+# dont track output folder
+/output/*
+
+# dont track .env file
+.env
+
+# dont track models folder
+/models/whisper*
+
+# dont track .cursor files
+.cursor/*
