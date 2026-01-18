@@ -1,11 +1,37 @@
 # dont track output folder
 /output/*
 
-# dont track .env file
-.env
-
 # dont track models folder
 /models/whisper*
 
-# dont track .cursor files
-.cursor/*
+# Environment and secrets
+.env
+.env.local
+*.pem
+credentials.json
+secrets/
+
+# Dependencies (reinstallable)
+node_modules/
+venv/
+__pycache__/
+*.pyc
+
+# Build outputs
+dist/
+build/
+*.egg-info/
+
+# IDE/Editor files
+.vscode/
+.idea/
+.cursor/
+*.swp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs and temp files
+*.log
+tmp/
