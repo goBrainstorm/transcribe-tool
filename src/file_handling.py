@@ -24,10 +24,10 @@ class FileHandler:
         if not os.path.exists(self.DEFAULT_OUTPUT_FOLDER):
             os.makedirs(self.DEFAULT_OUTPUT_FOLDER)
 
-    def create_output_file(self, ignore_existing: bool = False) -> None: #TODO: add functionallity to create new individual output files
+    def create_output_file(self) -> None: #TODO: add functionallity to create new individual output files
         """Create a new output file. If the file already exists, the file will be overwritten."""
         self.create_output_folder()
-        if not os.path.exists(self.DEFAULT_OUTPUT_FOLDER + self.DEFAULT_OUTPUT_FILE) or ignore_existing:
+        if not os.path.exists(self.DEFAULT_OUTPUT_FOLDER + self.DEFAULT_OUTPUT_FILE):
             with open(self.DEFAULT_OUTPUT_FOLDER + self.DEFAULT_OUTPUT_FILE, "w") as f:
                 json.dump(self.DEFAULT_STRUCTURE, f)
 
