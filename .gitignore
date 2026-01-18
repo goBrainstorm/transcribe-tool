@@ -4,7 +4,7 @@
 # dont track models folder
 /models/whisper/
 !/models/whisper/README.md
-!/mdoels/whisper/whisper.cpp
+!/models/whisper.cpp/
 
 # Environment and secrets
 .env
