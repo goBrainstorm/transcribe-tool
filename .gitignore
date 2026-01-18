@@ -2,7 +2,9 @@
 /output/*
 
 # dont track models folder
-/models/whisper*
+/models/whisper/
+!/models/whisper/README.md
+!/mdoels/whisper/whisper.cpp
 
 # Environment and secrets
 .env
