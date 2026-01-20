@@ -1,8 +1,9 @@
-# dont track output folder
-/output/*
+# Output and Input folder
+output/
+input/
 
 # dont track models folder
-/models/whisper/
+models/
 !/models/whisper/README.md
 !/models/whisper.cpp/
 
