@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<transcriptions>
+    <entry id="2026-01-20T14:30:00" has_date_as_id="1">
+        <transcription>
+            Today we discussed the new project timeline and assigned tasks to team members.
+            John will handle the backend development while Sarah focuses on the frontend.
+            We agreed to have daily standups at 9 AM starting next week.
+        </transcription>
+        <summary>Team meeting about project timeline and task assignments with daily standup schedule.</summary>
+        <tags>
+            <tag>meeting</tag>
+            <tag>project-planning</tag>
+            <tag>team</tag>
+        </tags>
+        <language>en</language>
+    </entry>
+
+    <entry id="2026-01-19T09:15:22" has_date_as_id="1">
+        <transcription>
+            Quick voice memo: Remember to follow up with the client about the contract revisions.
+            They mentioned concerns about the delivery date in section 3.2.
+            Need to prepare a response by end of day tomorrow.
+        </transcription>
+        <summary>Voice memo reminder about client contract follow-up regarding delivery date concerns.</summary>
+        <tags>
+            <tag>reminder</tag>
+            <tag>client</tag>
+            <tag>contract</tag>
+            <tag>urgent</tag>
+        </tags>
+        <language>en</language>
+    </entry>
+
+    <entry id="note-a1b2c3d4" has_date_as_id="0">
+        <transcription>
+            Interview with candidate for senior developer position.
+            Strong background in Python and cloud infrastructure.
+            Good communication skills, asked thoughtful questions about team culture.
+            Recommend moving forward to technical assessment.
+        </transcription>
+        <summary>Senior developer interview notes with positive recommendation for technical assessment.</summary>
+        <tags>
+            <tag>interview</tag>
+            <tag>hiring</tag>
+            <tag>senior-developer</tag>
+        </tags>
+        <language>en</language>
+    </entry>
+
+    <entry id="2026-01-15T16:45:00" has_date_as_id="1">
+        <transcription>
+            Brainstorming session for the new mobile app feature.
+            Ideas discussed: offline mode, push notifications for updates, 
+            dark theme support, and integration with calendar apps.
+            Priority should be offline mode based on user feedback.
+        </transcription>
+        <summary>Mobile app feature brainstorm prioritizing offline mode based on user feedback.</summary>
+        <tags>
+            <tag>brainstorm</tag>
+            <tag>mobile-app</tag>
+            <tag>feature-request</tag>
+            <tag>product</tag>
+        </tags>
+        <language>en</language>
+    </entry>
+
+    <entry id="note-x7y8z9w0" has_date_as_id="0">
+        <transcription>
+            Personal note about the book I just finished reading.
+            Main takeaways: importance of deep work, time blocking techniques,
+            and reducing digital distractions. Want to implement the two-hour
+            focus block strategy starting Monday.
+        </transcription>
+        <summary>Reading notes on productivity book with plan to implement focus block strategy.</summary>
+        <tags>
+            <tag>personal</tag>
+            <tag>reading</tag>
+            <tag>productivity</tag>
+            <tag>self-improvement</tag>
+        </tags>
+        <language>en</language>
+    </entry>
+</transcriptions>

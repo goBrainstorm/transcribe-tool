@@ -26,13 +26,7 @@ def transcribe_recording(recording_path, model_size: str = "base"):
 def main():
     # get available models
     file_handler = file_handling.FileHandler()
-    # print(file_handler.add_entry()) 
-    print(file_handler.create_output_file())
-    print(file_handler.get_available_models())
-    test = get_example_transcription_without_date()
-    print(file_handler.add_entry(test[1], test[0], test[2], test[3], test[4]))
-    test = get_example_transcription_with_date()
-    print(file_handler.add_entry(test[1], test[0], test[2], test[3], test[4]))
+    
     
 
 
