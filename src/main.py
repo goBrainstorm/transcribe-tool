@@ -2,19 +2,13 @@
 # import whisper.cpp as whisper
 import os
 
-def get_available_models(path: str = "models/whisper"):
+def get_available_models(path: str = "models/whisper.cpp"):
     return os.listdir(path)
-
-# define model sizes
-MODEL_SIZES = {
-}
-
 
 
 def transcribe_recording(recording_path, model_size: str = "base"):
-    model = whisper.load_model(model_size)
-    result = model.transcribe(recording_path)
-    return result
+    # TODO: insert logic to transcribe recording with the use of file_handling.py 
+    pass
 
 def main():
     # get available models
