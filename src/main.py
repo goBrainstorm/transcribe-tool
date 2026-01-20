@@ -1,6 +1,5 @@
 # main functinality to transcribe a recording with whisper.cpp
 # import whisper.cpp as whisper
-import os
 import file_handling
 
 def get_example_transcription_with_date():
@@ -19,14 +18,14 @@ def get_example_transcription_without_date():
     language = "en"
     return [date, transcribtion, summary, tags, language]
 
-def transcribe_recording(recording_path, model_size: str = "base"):
+def transcribe_recording(recording_path, model_size: str = "models/whisper.cpp/ggml-tiny.bin"):
     # TODO: insert logic to transcribe recording with the use of file_handling.py
     pass
 
 def main():
     # get available models
     file_handler = file_handling.FileHandler()
-    
+
     
 
 

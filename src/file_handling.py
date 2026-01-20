@@ -41,8 +41,6 @@ class FileHandler:
             print(f"Error creating file: {e}")
             return False
 
-
-
     def add_entry(
         self,
         transcription: str = "",
