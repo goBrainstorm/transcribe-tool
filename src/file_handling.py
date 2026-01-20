@@ -1,39 +1,49 @@
-import os
-import json
-import time
+from pathlib import Path
 
 
 class FileHandler:
-    DEFAULT_MODEL_PATH = "models/whisper"
-    
-    DEFAULT_OUTPUT_FOLDER = "output/"
-    DEFAULT_OUTPUT_FILE_NAME = "output"
-    DEFAULT_FILE_EXTENSION = ".json"
-    DEFAULT_OUTPUT_FILE = DEFAULT_OUTPUT_FILE_NAME + DEFAULT_FILE_EXTENSION
-    DEFAULT_STRUCTURE = {
-        "date": "YYYY-MM-DD",
-        "time": "HH:MM:SS",
-        "duration": "HH:MM:SS",
-        "transcript": "",
-    }
+    """Handles file operations for the transcription tool, including XML output management."""
 
-    def __init__(self, output_folder: str = DEFAULT_OUTPUT_FOLDER, output_file: str = DEFAULT_OUTPUT_FILE):
-        pass #TODO: add functionallity to create new individual output files
+    DEFAULT_MODEL_PATH = Path("models/whisper.cpp")
+    DEFAULT_OUTPUT_FOLDER = Path("output")
+    OUTPUT_FILE_PATH = DEFAULT_OUTPUT_FOLDER / "output.xml"
 
-    def create_output_folder(self) -> None:
-        if not os.path.exists(self.DEFAULT_OUTPUT_FOLDER):
-            os.makedirs(self.DEFAULT_OUTPUT_FOLDER)
+    def __init__(self):
+        """Initialize the FileHandler instance."""
+        pass  # TODO: add functionality to create new individual output files
 
-    def create_output_file(self) -> None: #TODO: add functionallity to create new individual output files
-        """Create a new output file. If the file already exists, the file will be overwritten."""
-        self.create_output_folder()
-        if not os.path.exists(self.DEFAULT_OUTPUT_FOLDER + self.DEFAULT_OUTPUT_FILE):
-            with open(self.DEFAULT_OUTPUT_FOLDER + self.DEFAULT_OUTPUT_FILE, "w") as f:
-                json.dump(self.DEFAULT_STRUCTURE, f)
+    def create_file(self) -> bool:
+        """
+        Create an XML file at OUTPUT_FILE_PATH with the base transcriptions structure.
 
-    def write_to_output_file(self, data: dict) -> None:
-        with open(self.DEFAULT_OUTPUT_FOLDER + self.DEFAULT_OUTPUT_FILE, "w") as f:
-            json.dump(data, f)
+        Creates the output directory if it doesn't exist, then writes an empty
+        XML transcriptions file with proper encoding declaration.
+
+        Returns:
+            bool: True if the file was created successfully, False otherwise.
+        """
+        try:
+            # Create output directory if it doesn't exist
+            self.DEFAULT_OUTPUT_FOLDER.mkdir(parents=True, exist_ok=True)
+
+            # Create XML content with base structure
+            xml_content = '<?xml version="1.0" encoding="UTF-8"?>\n<transcriptions>\n</transcriptions>'
+
+            # Write the XML file
+            self.OUTPUT_FILE_PATH.write_text(xml_content, encoding='utf-8')
+
+            return True
+        except (IOError, OSError) as e:
+            print(f"Error creating file: {e}")
+            return False
 
     def get_available_models(self) -> list:
-        return [f for f in os.listdir(self.DEFAULT_MODEL_PATH) if f.endswith('.bin')]
+        """
+        Get a list of available Whisper model files.
+
+        Scans the DEFAULT_MODEL_PATH directory for .bin files.
+
+        Returns:
+            list: List of filenames ending with '.bin' in the models directory.
+        """
+        return [f.name for f in self.DEFAULT_MODEL_PATH.glob("*.bin")]
