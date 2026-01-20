@@ -14,7 +14,6 @@ import subprocess
 
 import numpy as np
 import torch
-import torchaudio
 from audio_denoiser.AudioDenoiser import AudioDenoiser
 from pywhispercpp.model import Model as WhisperModel
 
