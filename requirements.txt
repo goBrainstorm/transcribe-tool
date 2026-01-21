@@ -1,0 +1,13 @@
+# Audio noise reduction
+audio-denoiser>=0.1.0
+
+# Whisper.cpp Python bindings
+pywhispercpp>=1.4.0
+
+# Audio array handling
+numpy>=1.24.0
+scipy>=1.10.0
+
+# Required by audio-denoiser
+torch>=2.0.0
+torchaudio>=2.0.0
