@@ -1,6 +1,8 @@
 # Output and Input folder
-output/
-input/
+output/*
+!output/output_example.xml
+
+input/*
 
 # dont track models folder
 models/
