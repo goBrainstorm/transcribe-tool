@@ -6,13 +6,18 @@
             John will handle the backend development while Sarah focuses on the frontend.
             We agreed to have daily standups at 9 AM starting next week.
         </transcription>
+        <language>en</language>
+        <translation>
+            Heute haben wir über das neue Projektzeitplan und die Aufgabenverteilung in der Team besprochen.
+            John wird sich um die Backend-Entwicklung kümmern, während Sarah sich auf die Frontend-Entwicklung konzentriert.
+            Wir haben uns darauf geeinigt, tägliche Standups um 9 Uhr zu beginnen nächste Woche.
+        </translation>
         <summary>Team meeting about project timeline and task assignments with daily standup schedule.</summary>
         <tags>
             <tag>meeting</tag>
             <tag>project-planning</tag>
             <tag>team</tag>
         </tags>
-        <language>en</language>
     </entry>
 
     <entry id="2026-01-19T09:15:22" has_date_as_id="1">

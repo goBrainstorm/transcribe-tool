@@ -11,3 +11,6 @@ scipy>=1.10.0
 # Required by audio-denoiser
 torch>=2.0.0
 torchaudio>=2.0.0
+
+# Ollama integration
+ollama>=0.6.1
