@@ -7,7 +7,7 @@ input/*
 # dont track models folder
 models/
 !/models/whisper/README.md
-!/models/whisper.cpp/
+!/models/whisper.cpp/download-ggml-model.sh
 
 # Environment and secrets
 .env
