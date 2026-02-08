@@ -52,7 +52,7 @@ class TranslateTool:
     def __init__(
         self,
         ollama_handler: Optional[OllamaHandler] = None,
-        model_name: str = "translategemma:4b"
+        translate_model_name: str = "translategemma:4b"
     ):
         """
         Initialize the TranslateTool.
@@ -61,7 +61,7 @@ class TranslateTool:
             ollama_handler: An instance of OllamaHandler. If None, a new one is created.
             model_name: The name of the translation model to use (default: "translategemma:4b").
         """
-        self.model_name = model_name
+        self.model_name = translate_model_name
         self.handler = ollama_handler or OllamaHandler()
         
         # Check if service is running
@@ -80,7 +80,7 @@ class TranslateTool:
                     f"Please pull it using: ollama pull {self.model_name}"
                 )
 
-    def translate(self, text: str, target_language: str, source_language: str = "auto") -> str:
+    def translate(self, text: str, target_language: str = "en", source_language: str = "auto") -> str:
         """
         Translate the given text to the target language.
 
