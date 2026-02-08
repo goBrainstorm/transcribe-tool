@@ -1,15 +1,10 @@
-"""
-Main entry point for the transcription tool.
-
-Usage:
-    python main.py <audio_file> [--model MODEL_SIZE] [--no-clean] [--language LANG]
-"""
-
 import argparse
 from pathlib import Path
 
 from transcribe_tool import TranscribeTool
 from file_handling import FileHandler
+from translate import TranslateTool
+from datetime import datetime
 
 
 def parse_args():
@@ -51,6 +46,17 @@ def parse_args():
         action="store_true",
         help="List available whisper models"
     )
+    parser.add_argument(
+        "--translate",
+        action="store_true",
+        help="Translate the transcription"
+    )
+    parser.add_argument(
+        "--target-lang",
+        type=str,
+        default="en",
+        help="Target language for translation (default: en)"
+    )
     return parser.parse_args()
 
 
@@ -72,7 +78,16 @@ def list_available_models():
         print("Run: python models/download_model.py <model_size>  (e.g., python models/download_model.py tiny)")
 
 
-def transcribe_file(audio_path: Path, model_size: str, clean: bool, language: str, save: bool):
+def translate_text(text: str, target_language: str):
+    """
+    Translate the given text to the target language.
+    """
+    tool = TranslateTool()
+    translation = tool.translate(text, target_language, source_language="auto")
+    return translation
+
+
+def transcribe_file(audio_path: Path, model_size: str, clean: bool, language: str, save: bool, translate: bool = False, target_lang: str = "en"):
     """
     Transcribe a single audio file.
 
@@ -82,6 +97,8 @@ def transcribe_file(audio_path: Path, model_size: str, clean: bool, language: st
         clean: Whether to apply noise reduction.
         language: Language code for transcription.
         save: Whether to save to XML output.
+        translate: Whether to translate the transcription.
+        target_lang: Target language code for translation.
     """
     if not audio_path.exists():
         print(f"Error: Audio file not found: {audio_path}")
@@ -91,25 +108,61 @@ def transcribe_file(audio_path: Path, model_size: str, clean: bool, language: st
     print(f"Model: {model_size}")
     print(f"Noise reduction: {'enabled' if clean else 'disabled'}")
     print(f"Language: {language}")
+    if translate:
+        print(f"Translation: enabled (target: {target_lang})")
     print("-" * 40)
 
     with TranscribeTool(model_size=model_size) as tool:
+        # We disable auto-save in tool.process if we want to add translation before saving
+        # OR we save first and then update.
+        # But `process` doesn't support translation argument directly.
+        # So we do: process(save=False) -> translate -> manual save.
+        
         result = tool.process(
             audio_path=audio_path,
             clean=clean,
             language=language,
-            save_to_xml=save
+            save_to_xml=False
         )
 
         print("\nTranscription:")
         print(result["text"])
+        
+        translation_text = None
+        if translate and result["text"]:
+            print(f"\nTranslating to {target_lang}...")
+            try:
+                translation_text = translate_text(result["text"], target_lang)
+                print(f"Translation: {translation_text}")
+            except Exception as e:
+                print(f"Translation failed: {e}")
+
         print("-" * 40)
 
-        if result["cleaned_path"]:
+        if result.get("cleaned_path"):
             print(f"Cleaned audio saved to: {result['cleaned_path']}")
 
-        if result["saved"]:
-            print("Transcription saved to output/output.xml")
+        if save:
+            file_handler = FileHandler()
+            if not file_handler.OUTPUT_FILE_PATH.exists():
+                file_handler.create_output_file()
+                
+            entry_date = datetime.now().isoformat()
+            
+            success = file_handler.add_entry(
+                transcription=result["text"],
+                date=entry_date,
+                summary="", 
+                tags=[],
+                language=result.get("language", language),
+                confidence=result.get("language_probability"),
+                translation=translation_text
+            )
+            
+            if success:
+                print("Transcription saved to output/output.xml")
+            else:
+                print("Error saving to output.xml")
 
 
 def main():
@@ -131,7 +184,9 @@ def main():
         model_size=args.model,
         clean=not args.no_clean,
         language=args.language,
-        save=not args.no_save
+        save=not args.no_save,
+        translate=args.translate,
+        target_lang=args.target_lang
     )
 
 
