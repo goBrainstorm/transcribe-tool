@@ -8,7 +8,7 @@ import xml.etree.ElementTree as ET
 class FileHandler:
     """Handles file operations for the transcription tool, including XML output management."""
 
-    DEFAULT_MODEL_PATH = Path("models/whisper.cpp")
+    DEFAULT_MODEL_PATH = Path("models")
     DEFAULT_OUTPUT_FOLDER = Path("output")
     OUTPUT_FILE_PATH = DEFAULT_OUTPUT_FOLDER / "output.xml"
 
@@ -136,11 +136,17 @@ class FileHandler:
 
     def get_available_models(self) -> list:
         """
-        Get a list of available Whisper model files.
+        Get a list of locally available faster-whisper models.
 
-        Scans the DEFAULT_MODEL_PATH directory for .bin files.
+        Scans the DEFAULT_MODEL_PATH directory for CTranslate2 model directories.
+        Each model directory is expected to contain a 'model.bin' file.
 
         Returns:
-            list: List of filenames ending with '.bin' in the models directory.
+            list: List of directory names that contain downloaded models.
         """
-        return [f.name for f in self.DEFAULT_MODEL_PATH.glob("*.bin")]
+        if not self.DEFAULT_MODEL_PATH.exists():
+            return []
+        return [
+            d.name for d in self.DEFAULT_MODEL_PATH.iterdir()
+            if d.is_dir() and (d / "model.bin").exists()
+        ]
