@@ -11,6 +11,7 @@ from datetime import datetime
 import tempfile
 import shutil
 import subprocess
+import os
 
 import numpy as np
 import torch
@@ -154,6 +155,12 @@ class Transcriber:
         """
         self.models_dir = models_dir or self.DEFAULT_MODELS_DIR
         self.model_size = model_size
+        
+        # Set Hugging Face cache to use our models directory
+        # This ensures models are loaded from our local folder
+        os.environ["HF_HOME"] = str(self.models_dir.absolute())
+        os.environ["HF_HUB_CACHE"] = str(self.models_dir.absolute() / "hub")
+        
         self.model = WhisperModel(
             model_size,
             device="auto",

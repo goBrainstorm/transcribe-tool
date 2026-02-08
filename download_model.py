@@ -13,10 +13,16 @@ so they are available for offline use with the transcription tool.
 """
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
 MODELS_DIR = Path("models")
+
+# Set Hugging Face cache to use our models directory
+# This ensures models are downloaded directly to our local folder
+os.environ["HF_HOME"] = str(MODELS_DIR.absolute())
+os.environ["HF_HUB_CACHE"] = str(MODELS_DIR.absolute() / "hub")
 
 AVAILABLE_MODELS = [
     "tiny", "tiny.en",
