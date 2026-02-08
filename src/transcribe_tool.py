@@ -3,7 +3,7 @@ Transcribe tool for processing voice messages.
 
 This module provides audio cleaning and transcription capabilities using:
 - audio-denoiser for noise reduction
-- pywhispercpp for whisper.cpp transcription
+- faster-whisper (CTranslate2) for transcription
 """
 
 from pathlib import Path
@@ -15,7 +15,7 @@ import subprocess
 import numpy as np
 import torch
 from audio_denoiser.AudioDenoiser import AudioDenoiser
-from pywhispercpp.model import Model as WhisperModel
+from faster_whisper import WhisperModel
 
 from file_handling import FileHandler
 
@@ -137,34 +137,36 @@ class AudioCleaner:
 
 
 class Transcriber:
-    """Handles audio transcription using whisper.cpp via pywhispercpp."""
+    """Handles audio transcription using faster-whisper (CTranslate2)."""
 
-    DEFAULT_MODEL_PATH = Path("models/whisper.cpp")
+    DEFAULT_MODELS_DIR = Path("models")
 
-    def __init__(self, model_path: Path = None):
+    def __init__(self, model_size: str = "tiny", models_dir: Path = None):
         """
-        Initialize the Transcriber with a whisper model.
+        Initialize the Transcriber with a faster-whisper model.
 
         Args:
-            model_path: Path to the whisper.cpp model file (.bin).
-                       If None, uses ggml-tiny.bin from default location.
+            model_size: Whisper model size string (e.g., "tiny", "base", "small",
+                       "medium", "large-v3", "large-v3-turbo") or path to a
+                       local CTranslate2 model directory.
+            models_dir: Directory for caching downloaded models.
+                       If None, uses the default "models/" directory.
         """
-        if model_path is None:
-            model_path = self.DEFAULT_MODEL_PATH / "ggml-tiny.bin"
-
-        model_path = Path(model_path)
-        if not model_path.exists():
-            raise FileNotFoundError(f"Whisper model not found: {model_path}")
-
-        self.model_path = model_path
-        self.model = WhisperModel(str(model_path))
+        self.models_dir = models_dir or self.DEFAULT_MODELS_DIR
+        self.model_size = model_size
+        self.model = WhisperModel(
+            model_size,
+            device="auto",
+            compute_type="int8",
+            download_root=str(self.models_dir)
+        )
 
     def transcribe(self, audio_path: Path, language: str = "en") -> dict:
         """
         Transcribe an audio file.
 
         Args:
-            audio_path: Path to the audio file (should be 16kHz mono WAV).
+            audio_path: Path to the audio file (WAV, MP3, etc. -- ffmpeg formats supported).
             language: Language code for transcription (e.g., "en", "de", "es").
 
         Returns:
@@ -180,26 +182,30 @@ class Transcriber:
         if not audio_path.exists():
             raise FileNotFoundError(f"Audio file not found: {audio_path}")
 
-        # Transcribe using pywhispercpp
-        segments = self.model.transcribe(
+        # Transcribe using faster-whisper
+        segments_generator, info = self.model.transcribe(
             str(audio_path),
-            language=language
+            language=language,
+            beam_size=5
         )
 
-        # Extract text from segments
-        full_text = " ".join(segment.text.strip() for segment in segments)
+        # Consume the generator into a list so we can iterate twice
+        segments_list = list(segments_generator)
+
+        # Extract full text from segments
+        full_text = " ".join(segment.text.strip() for segment in segments_list)
 
         return {
             "text": full_text,
             "segments": [
                 {
-                    "start": segment.t0 / 100.0,  # Convert to seconds
-                    "end": segment.t1 / 100.0,
+                    "start": segment.start,
+                    "end": segment.end,
                     "text": segment.text.strip()
                 }
-                for segment in segments
+                for segment in segments_list
             ],
-            "language": language
+            "language": info.language
         }
 
 
@@ -212,23 +218,21 @@ class TranscribeTool:
 
     def __init__(
         self,
-        model_name: str = "ggml-tiny.bin",
-        model_dir: Path = None,
+        model_size: str = "tiny",
+        models_dir: Path = None,
         temp_dir: Path = None
     ):
         """
         Initialize the TranscribeTool.
 
         Args:
-            model_name: Name of the whisper model file to use.
-            model_dir: Directory containing whisper models.
+            model_size: Whisper model size (e.g., "tiny", "base", "small",
+                       "medium", "large-v3", "large-v3-turbo").
+            models_dir: Directory for caching downloaded models.
             temp_dir: Directory for temporary cleaned audio files.
         """
-        model_dir = model_dir or Path("models/whisper.cpp")
-        model_path = model_dir / model_name
-
         self.cleaner = AudioCleaner(output_dir=temp_dir)
-        self.transcriber = Transcriber(model_path=model_path)
+        self.transcriber = Transcriber(model_size=model_size, models_dir=models_dir)
         self.file_handler = FileHandler()
 
     def process(

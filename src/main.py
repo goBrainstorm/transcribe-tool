@@ -2,7 +2,7 @@
 Main entry point for the transcription tool.
 
 Usage:
-    python main.py <audio_file> [--model MODEL_NAME] [--no-clean] [--language LANG]
+    python main.py <audio_file> [--model MODEL_SIZE] [--no-clean] [--language LANG]
 """
 
 import argparse
@@ -15,7 +15,7 @@ from file_handling import FileHandler
 def parse_args():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
-        description="Transcribe voice messages with noise reduction and whisper.cpp"
+        description="Transcribe voice messages with noise reduction and faster-whisper"
     )
     parser.add_argument(
         "audio_file",
@@ -26,8 +26,9 @@ def parse_args():
     parser.add_argument(
         "--model",
         type=str,
-        default="ggml-tiny.bin",
-        help="Whisper model to use (default: ggml-tiny.bin)"
+        default="tiny",
+        help="Whisper model size to use (e.g., tiny, base, small, medium, "
+             "large-v3, large-v3-turbo). Default: tiny"
     )
     parser.add_argument(
         "--no-clean",
@@ -54,26 +55,30 @@ def parse_args():
 
 
 def list_available_models():
-    """List all available whisper models."""
+    """List all available whisper models (locally downloaded)."""
     file_handler = FileHandler()
     models = file_handler.get_available_models()
 
+    print("Known faster-whisper model sizes:")
+    print("  tiny, base, small, medium, large-v3, large-v3-turbo")
+    print()
+
     if models:
-        print("Available whisper models:")
+        print("Locally downloaded models:")
         for model in models:
             print(f"  - {model}")
     else:
-        print("No whisper models found in models/whisper.cpp/")
-        print("Download models from: https://huggingface.co/ggerganov/whisper.cpp/tree/main")
+        print("No models downloaded locally yet.")
+        print("Run: python models/download_model.py <model_size>  (e.g., python models/download_model.py tiny)")
 
 
-def transcribe_file(audio_path: Path, model_name: str, clean: bool, language: str, save: bool):
+def transcribe_file(audio_path: Path, model_size: str, clean: bool, language: str, save: bool):
     """
     Transcribe a single audio file.
 
     Args:
         audio_path: Path to the audio file.
-        model_name: Name of the whisper model to use.
+        model_size: Whisper model size string (e.g., "tiny", "base", "small").
         clean: Whether to apply noise reduction.
         language: Language code for transcription.
         save: Whether to save to XML output.
@@ -83,12 +88,12 @@ def transcribe_file(audio_path: Path, model_name: str, clean: bool, language: st
         return
 
     print(f"Processing: {audio_path}")
-    print(f"Model: {model_name}")
+    print(f"Model: {model_size}")
     print(f"Noise reduction: {'enabled' if clean else 'disabled'}")
     print(f"Language: {language}")
     print("-" * 40)
 
-    with TranscribeTool(model_name=model_name) as tool:
+    with TranscribeTool(model_size=model_size) as tool:
         result = tool.process(
             audio_path=audio_path,
             clean=clean,
@@ -123,7 +128,7 @@ def main():
 
     transcribe_file(
         audio_path=args.audio_file,
-        model_name=args.model,
+        model_size=args.model,
         clean=not args.no_clean,
         language=args.language,
         save=not args.no_save
