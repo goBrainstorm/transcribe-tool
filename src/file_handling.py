@@ -60,11 +60,9 @@ class FileHandler:
     def add_entry(
         self,
         transcription: str = "",
+        model: str = "",
         date: str = None,
-        summary: str = "",
-        tags: list = None,
         language: str = None,
-        confidence: float = None,
         translation: str = None
     ) -> bool:
         """
@@ -113,7 +111,7 @@ class FileHandler:
                 raise ValueError("Cannot generate entry ID: date is invalid and transcription is empty.")
             entry_id = f"ID-{generate_hash(transcription)}"
             has_date_as_id = "0"
-
+    
         # Parse existing XML
         try:
             tree = ET.parse(self.OUTPUT_FILE_PATH)
@@ -130,8 +128,8 @@ class FileHandler:
         trans_elem = ET.SubElement(entry, "transcription")
         if language:
             trans_elem.set("language", language)
-        if confidence is not None:
-            trans_elem.set("confidence", str(confidence))
+        if model:
+            trans_elem.set("model", model)
         trans_elem.text = f"\n{transcription.strip()}\n" if transcription else ""
 
         # 2. Translation element
@@ -143,14 +141,10 @@ class FileHandler:
 
         # Tags
         tags_elem = ET.SubElement(extracted_info, "tags")
-        if tags:
-            for tag in tags:
-                tag_elem = ET.SubElement(tags_elem, "tag")
-                tag_elem.text = tag
-
-        # Summary
-        summary_elem = ET.SubElement(extracted_info, "summary")
-        summary_elem.text = summary
+        
+        # set information 
+        ET.SubElement(tags_elem, "tag")
+        ET.SubElement(extracted_info, "summary")
 
         # Write back to file with proper formatting
         try:
@@ -165,7 +159,9 @@ class FileHandler:
         self,
         entry_id: str,
         transcription: str = None,
+        transcription_model: str = None,
         translation: str = None,
+        translation_model: str = None,
         summary: str = None,
         tags: list = None,
         language: str = None
@@ -214,6 +210,8 @@ class FileHandler:
                 trans_elem.text = f"\n{transcription.strip()}\n"
             if language is not None:
                 trans_elem.set("language", language)
+            if transcription_model is not None:
+                trans_elem.set("model", transcription_model)
 
         # Update Translation
         trans_l_elem = entry.find("translation")
@@ -222,6 +220,8 @@ class FileHandler:
         
         if trans_l_elem is not None and translation is not None:
             trans_l_elem.text = f"\n{translation.strip()}\n"
+            if translation_model is not None:
+                trans_l_elem.set("model", translation_model)
 
         # Update Extracted Information (Summary and Tags)
         extracted_info = entry.find("extracted_information")
@@ -256,3 +256,13 @@ class FileHandler:
         except (IOError, OSError) as e:
             print(f"Error writing entry: {e}")
             return False
+
+    def get_all_entries_without_translation(self) -> list:
+        """
+        Get all entries without a translation.
+        """
+        if not self.OUTPUT_FILE_PATH.exists():
+            return []
+        tree = ET.parse(self.OUTPUT_FILE_PATH)
+        root = tree.getroot()
+        return [entry for entry in root.findall("entry") if entry.find("translation") is None]

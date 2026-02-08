@@ -73,7 +73,7 @@ def list_available_models():
         print("Run: python models/download_model.py <model_size>  (e.g., python models/download_model.py tiny)")
 
 
-def transcribe_file(audio_path: Path, model_size: str, clean: bool, language: str, save: bool):
+def transcribe_file(audio_path: Path, model_size: str, clean: bool, language: str, save: bool = True, print_result: bool = True):
     """
     Transcribe a single audio file.
 
@@ -99,28 +99,43 @@ def transcribe_file(audio_path: Path, model_size: str, clean: bool, language: st
             audio_path=audio_path,
             clean=clean,
             language=language,
-            save_to_xml=save
         )
 
-        print("\nTranscription:")
-        print(result["text"])
-        print("-" * 40)
+        if save:
+            file_handler = FileHandler()
+            if not file_handler.OUTPUT_FILE_PATH.exists():
+                file_handler.create_output_file()
+            success = file_handler.add_entry(
+                transcription=result["text"],
+                model=model_size,
+                language=language,
+                translation=translate_text(result["text"], language)
+            )
+            if success:
+                print("Transcription saved to output/output.xml")
+            else:
+                print("Warning: Failed to save transcription.")
+
+        if print_result:
+            print("\nTranscription:")
+            print(result["text"])
+            print("-" * 40)
 
         if result["cleaned_path"]:
             print(f"Cleaned audio saved to: {result['cleaned_path']}")
-
-        if result["saved"]:
-            print("Transcription saved to output/output.xml")
 
 def translate_text(text: str, target_language: str):
     """
     Translate the given text to the target language.
     """
     tool = TranslateTool()
-
-    translation = tool.translate(text, target_language, source_language="auto")
-    print(f"Translation: {translation}")
-    return translation
+    try:
+        translation = tool.translate(text, target_language, source_language="auto")
+        print(f"Translation: {translation}")
+        return translation
+    except ConnectionError:
+        print("Warning: Translation skipped -- Ollama is not reachable.")
+        return None
 
 def main():
     """Main entry point."""
@@ -136,15 +151,16 @@ def main():
         print("Use --help for more information.")
         return
 
+
     transcribe_file(
         audio_path=args.audio_file,
         model_size=args.model,
         clean=not args.no_clean,
         language=args.language,
-        save=not args.no_save
+        save=not args.no_save,
+        print_result=False,
     )
 
-    transcribe_file()
 
 
 if __name__ == "__main__":

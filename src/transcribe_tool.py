@@ -7,7 +7,6 @@ This module provides audio cleaning and transcription capabilities using:
 """
 
 from pathlib import Path
-from datetime import datetime
 import tempfile
 import shutil
 import subprocess
@@ -248,10 +247,7 @@ class TranscribeTool:
         self,
         audio_path: Path,
         clean: bool = True,
-        language: str = "en",
-        save_to_xml: bool = True,
-        date: str = None,
-        tags: list = None
+        language: str = "de",
     ) -> dict:
         """
         Process an audio file through the full transcription pipeline.
@@ -260,9 +256,6 @@ class TranscribeTool:
             audio_path: Path to the input audio file.
             clean: Whether to apply noise reduction before transcription.
             language: Language code for transcription.
-            save_to_xml: Whether to save the transcription to the XML output file.
-            date: Optional date string for the entry (ISO format).
-            tags: Optional list of tags for the entry.
 
         Returns:
             dict with keys:
@@ -270,15 +263,12 @@ class TranscribeTool:
                 - segments: List of transcription segments
                 - language: Language used
                 - cleaned_path: Path to cleaned audio (if clean=True)
-                - saved: Whether entry was saved to XML
         """
         audio_path = Path(audio_path)
         result = {
             "text": "",
             "segments": [],
-            "language": language,
             "cleaned_path": None,
-            "saved": False
         }
 
         # Step 1: Clean audio if requested
@@ -294,25 +284,6 @@ class TranscribeTool:
         result["text"] = transcription["text"]
         result["segments"] = transcription["segments"]
         result["language"] = transcription["language"]
-
-        # Step 3: Save to XML if requested
-        if save_to_xml:
-            # Ensure output file exists
-            if not self.file_handler.OUTPUT_FILE_PATH.exists():
-                self.file_handler.create_output_file()
-
-            # Use provided date or generate current timestamp
-            entry_date = date or datetime.now().isoformat()
-
-            success = self.file_handler.add_entry(
-                transcription=result["text"],
-                date=entry_date,
-                summary="",  # Summary can be added later (e.g., by LLM)
-                tags=tags or [],
-                language=transcription["language"],
-                confidence=transcription["language_probability"]
-            )
-            result["saved"] = success
 
         return result
 
