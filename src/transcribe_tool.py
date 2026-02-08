@@ -181,6 +181,7 @@ class Transcriber:
                 - text: The full transcription text
                 - segments: List of transcription segments with timestamps
                 - language: Detected or specified language
+                - language_probability: Confidence of the detected language
 
         Raises:
             FileNotFoundError: If audio file doesn't exist.
@@ -212,7 +213,8 @@ class Transcriber:
                 }
                 for segment in segments_list
             ],
-            "language": info.language
+            "language": info.language,
+            "language_probability": info.language_probability
         }
 
 
@@ -307,7 +309,8 @@ class TranscribeTool:
                 date=entry_date,
                 summary="",  # Summary can be added later (e.g., by LLM)
                 tags=tags or [],
-                language=language
+                language=transcription["language"],
+                confidence=transcription["language_probability"]
             )
             result["saved"] = success
 
