@@ -98,6 +98,7 @@ def download_model(model_size: str):
 
 
 def main():
+    import sys
     parser = argparse.ArgumentParser(
         description="Download faster-whisper models for local transcription."
     )
@@ -114,6 +115,11 @@ def main():
         help="List all available model sizes"
     )
 
+    # If no arguments are passed, print help and exit
+    if len(sys.argv) == 1:
+        parser.print_help()
+        sys.exit(0)
+
     args = parser.parse_args()
 
     if args.list:
@@ -121,13 +127,11 @@ def main():
         return
 
     if args.model_size is None:
-        model_size = "tiny"
-        print(f"No model size specified, defaulting to '{model_size}'.")
-        print()
-    else:
-        model_size = args.model_size
+        print("Error: No model size specified.")
+        parser.print_help()
+        sys.exit(1)
 
-    download_model(model_size)
+    download_model(args.model_size)
 
 
 if __name__ == "__main__":

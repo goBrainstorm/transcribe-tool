@@ -206,7 +206,7 @@ def translate_text(text: str, target_language: str):
     """
     tool = TranslateTool()
     try:
-        translation = tool.translate(text, target_language, source_language="en")
+        translation = tool.translate(text, target_language, source_language="auto")
         print(f"Translation: {translation}")
         return translation
     except ConnectionError:
