@@ -200,7 +200,7 @@ def transcribe_and_translate_file(audio_path: Path, model_size: str, clean: bool
                 print("Warning: Failed to save translation to output/output.xml")
 
 
-def translate_text(text: str, target_language: str):
+def translate_text(text: str, target_language: str = "en"):
     """
     Translate the given text to the target language.
     """
@@ -213,6 +213,18 @@ def translate_text(text: str, target_language: str):
         print("Warning: Translation skipped -- Ollama is not reachable.")
         return None
 
+def translate_entries_without_translation(ids: list[str]):
+    """
+    Translate all entries without a translation.
+    """
+    if len(ids) == 0:
+        return
+    print(f"Translating {len(ids)} entries without translation: {ids}")
+    file_handler = FileHandler()
+    for entry_id in ids:
+        translation = translate_text(file_handler.get_transcription_content(entry_id))
+        file_handler.update_entry(entry_id, translation=translation)
+
 def main():
     """Main entry point."""
     args = parse_args()
@@ -221,14 +233,13 @@ def main():
         list_available_models()
         return
 
-    if args.audio_file is None:
-        print("Error: Please provide an audio file to transcribe.")
-        print("Usage: python main.py <audio_file> [options]")
-        print("Use --help for more information.")
-        return
+    # if args.audio_file is None:
+    #     print("Error: Please provide an audio file to transcribe.")
+    #     print("Usage: python main.py <audio_file> [options]")
+    #     print("Use --help for more information.")
+    #     return
 
-
-    # transcribe_file(
+    # transcribe_and_translate_file(
     #     audio_path=args.audio_file,
     #     model_size=args.model,
     #     clean=not args.no_clean,
@@ -236,14 +247,10 @@ def main():
     #     save=not args.no_save,
     #     print_result=False,
     # )
-    transcribe_and_translate_file(
-        audio_path=args.audio_file,
-        model_size=args.model,
-        clean=not args.no_clean,
-        language=args.language,
-        save=not args.no_save,
-        print_result=False,
-    )
+
+    print(FileHandler().get_all_entries_without_translation())
+
+    translate_entries_without_translation(FileHandler().get_all_entries_without_translation())
 
 
 

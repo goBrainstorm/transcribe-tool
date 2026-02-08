@@ -57,6 +57,46 @@ class FileHandler:
             print(f"Error creating file: {e}")
             return False
 
+    def get_entry(self, entry_id: str) -> ET.Element:
+        """
+        Get an entry by its ID.
+        
+        Args:
+            entry_id: The ID of the entry to retrieve.
+            
+        Returns:
+            ET.Element: The entry element if found, None otherwise.
+        """
+        if not self.OUTPUT_FILE_PATH.exists():
+            return None
+        
+        try:
+            tree = ET.parse(self.OUTPUT_FILE_PATH)
+            root = tree.getroot()
+            return root.find(f".//entry[@id='{entry_id}']")
+        except ET.ParseError:
+            return None
+
+    def get_transcription_content(self, entry_id: str) -> str:
+        """
+        Get the transcription content from an entry by its ID.
+        
+        Args:
+            entry_id: The ID of the entry to retrieve transcription from.
+            
+        Returns:
+            str: The transcription text content if found, None otherwise.
+        """
+        entry = self.get_entry(entry_id)
+        if entry is None:
+            return None
+        
+        transcription_elem = entry.find("transcription")
+        if transcription_elem is None or transcription_elem.text is None:
+            return None
+        
+        return transcription_elem.text.strip()
+
     def add_entry(
         self,
         transcription: str = "",
@@ -216,10 +256,11 @@ class FileHandler:
         # Update Translation
         trans_l_elem = entry.find("translation")
         if trans_l_elem is None and translation is not None:
+            # Create if doesn't exist but we have data for it
             trans_l_elem = ET.SubElement(entry, "translation")
         
         if trans_l_elem is not None and translation is not None:
-            trans_l_elem.text = f"\n{translation.strip()}\n"
+            trans_l_elem.text = f"\n{translation.strip()}\n" if translation else ""
             if translation_model is not None:
                 trans_l_elem.set("model", translation_model)
 
@@ -282,9 +323,23 @@ class FileHandler:
     def get_all_entries_without_translation(self) -> list:
         """
         Get all entries without a translation.
+        
+        Returns:
+            list: List of entry elements that have no translation or empty translation text.
         """
         if not self.OUTPUT_FILE_PATH.exists():
             return []
         tree = ET.parse(self.OUTPUT_FILE_PATH)
         root = tree.getroot()
-        return [entry for entry in root.findall("entry") if entry.find("translation") is None]
+        
+        print("Getting all entries without translation: ")
+        entries_without_translation = []
+        for entry in root.findall("entry"):
+            translation_elem = entry.find("translation")
+            # Check if translation element doesn't exist or has no text or only whitespace
+            if translation_elem is None or not translation_elem.text or translation_elem.text.strip() == "":
+                entries_without_translation.append(entry.get("id"))
+
+        print("\n" * 2, "-" *40, "\n" * 2)
+        
+        return entries_without_translation
