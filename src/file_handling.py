@@ -257,6 +257,28 @@ class FileHandler:
             print(f"Error writing entry: {e}")
             return False
 
+    def get_last_entry_id(self) -> str:
+        """
+        Get the ID of the last entry in the output XML file.
+
+        Returns:
+            str: The ID of the last entry, or None if no entries exist.
+        """
+        if not self.OUTPUT_FILE_PATH.exists():
+            return None
+
+        try:
+            tree = ET.parse(self.OUTPUT_FILE_PATH)
+            root = tree.getroot()
+        except ET.ParseError:
+            return None
+
+        entries = root.findall("entry")
+        if not entries:
+            return None
+
+        return entries[-1].get("id")
+
     def get_all_entries_without_translation(self) -> list:
         """
         Get all entries without a translation.

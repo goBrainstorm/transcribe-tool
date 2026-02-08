@@ -55,9 +55,20 @@ class OllamaHandler:
         """
         try:
             response = self.client.list()
-            # response is typically {'models': [{'name': '...', ...}, ...]}
-            if 'models' in response:
-                return [model['name'] for model in response['models']]
+            # The ollama client may return objects with .models attribute
+            # and each model may have .model attribute (not dict with 'name' key)
+            models = getattr(response, 'models', None)
+            if models is None and isinstance(response, dict):
+                models = response.get('models', [])
+            if models:
+                result = []
+                for m in models:
+                    name = getattr(m, 'model', None) or getattr(m, 'name', None)
+                    if name is None and isinstance(m, dict):
+                        name = m.get('model') or m.get('name')
+                    if name:
+                        result.append(name)
+                return result
             return []
         except Exception as e:
             # If service is down, this will raise. We can return empty list or let it raise.
@@ -111,7 +122,7 @@ class OllamaHandler:
             return response['response']
         except Exception as e:
             str_e = str(e).lower()
-            if "connection refused" in str_e or "newconnectionerror" in str_e:
+            if "connection refused" in str_e or "newconnectionerror" in str_e or "failed to connect" in str_e:
                  raise ConnectionError(
                     f"Ollama service at {self.host} is not reachable. "
                     "Please ensure 'ollama serve' is running."
