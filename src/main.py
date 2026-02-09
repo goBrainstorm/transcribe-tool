@@ -7,6 +7,7 @@ Usage:
 
 import argparse
 from pathlib import Path
+from typing import Optional
 
 from transcribe_tool import TranscribeTool
 from file_handling import FileHandler
@@ -73,7 +74,15 @@ def list_available_models():
         print("Run: python models/download_model.py <model_size>  (e.g., python models/download_model.py tiny)")
 
 
-def transcribe_file(audio_path: Path, model_size: str, clean: bool, language: str, save: bool = True, print_result: bool = True):
+def transcribe_file(
+    audio_path: Path,
+    model_size: str,
+    clean: bool,
+    language: str,
+    save: bool = True,
+    print_result: bool = True,
+    translator: Optional[TranslateTool] = None
+):
     """
     Transcribe a single audio file.
 
@@ -109,11 +118,12 @@ def transcribe_file(audio_path: Path, model_size: str, clean: bool, language: st
             if file_handler.entry_exists_by_filename(audio_path.name) or file_handler.entry_exists_by_id(transcription_id):
                 print("Skipping save: entry already exists in output.")
             else:
+                effective_translator = translator or TranslateTool()
                 success = file_handler.add_entry(
                     transcription=result["text"],
                     model=model_size,
                     language=language,
-                    translation=translate_text(result["text"], language),
+                    translation=translate_text(result["text"], effective_translator, language),
                     filename=audio_path.name
                 )
                 if success:
@@ -159,19 +169,18 @@ def transcribe_all_files(model_size: str = "tiny", clean: bool = True, language:
     return results
 
 
-def translate_text(text: str):
+def translate_text(text: str, translator: TranslateTool, target_language: str = "en"):
     """
     Translate the given text to the target language.
     """
-    tool = TranslateTool()
     try:
-        translation = tool.translate(text)
+        translation = translator.translate(text, target_language=target_language)
         return translation
     except ConnectionError:
         print("Warning: Translation skipped -- Ollama is not reachable.")
         return None
 
-def translate_entries_without_translation(ids: list[str]):
+def translate_entries_without_translation(ids: list[str], translator: TranslateTool):
     """
     Translate all entries without a translation.
     """
@@ -180,7 +189,10 @@ def translate_entries_without_translation(ids: list[str]):
     print(f"Translating {len(ids)} entries without translation: {ids}")
     file_handler = FileHandler()
     for entry_id in ids:
-        translation = translate_text(file_handler.get_transcription_content(entry_id))
+        translation = translate_text(
+            file_handler.get_transcription_content(entry_id),
+            translator
+        )
         file_handler.update_entry(entry_id, translation=translation)
 
 def main():
@@ -208,9 +220,10 @@ def main():
 
     transcribe_all_files(model_size=args.model)
 
-    print(FileHandler().get_all_entries_without_translation())
-
-    translate_entries_without_translation(FileHandler().get_all_entries_without_translation())
+    translator = TranslateTool()
+    missing_translation_ids = FileHandler().get_all_entries_without_translation()
+    print(missing_translation_ids)
+    translate_entries_without_translation(missing_translation_ids, translator)
 
 
 
