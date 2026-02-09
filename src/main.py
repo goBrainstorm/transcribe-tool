@@ -154,7 +154,6 @@ def transcribe_all_files(model_size: str = "tiny", clean: bool = True, language:
         for result in results:
             if result["success"]:
                 print(f"\n{result['file'].name}:")
-                print(result["text"])
                 print("-" * 40)
     
     return results
