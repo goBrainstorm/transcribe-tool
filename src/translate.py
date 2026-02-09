@@ -115,6 +115,7 @@ class TranslateTool:
              prompt = f"Translate from {source_language} to {target_language}: {text}"
 
         try:
+            # TODO: Check token count and split if necessary
             return self.handler.generate(model=self.model_name, prompt=prompt)
         except Exception as e:
             # Re-raise with context if needed, but handler already raises specific errors

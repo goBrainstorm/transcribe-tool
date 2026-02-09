@@ -124,10 +124,10 @@ class OllamaHandler:
             # We don't explicitly check is_running() here to save a round trip,
             # trusting the client to raise an error if connection fails.
             num_tokens = self.get_token_count(prompt)
-            if num_tokens > 4096/2:
-                response = self.client.generate(model=model, prompt=prompt, **kwargs)
+            if num_tokens > (4096/2):
+                response = self.client.generate(model=model, prompt=prompt, options={"num_ctx": 8096})
             else:
-                response = self.client.generate(model=model, prompt=prompt, **kwargs)
+                response = self.client.generate(model=model, prompt=prompt)
             return response['response']
         except Exception as e:
             str_e = str(e).lower()
