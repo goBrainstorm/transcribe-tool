@@ -103,6 +103,8 @@ class AudioCleaner:
             FileNotFoundError: If input file doesn't exist.
             RuntimeError: If audio processing fails.
         """
+
+        start = time.perf_counter()
         input_path = Path(input_path)
         if not input_path.exists():
             raise FileNotFoundError(f"Audio file not found: {input_path}")
@@ -128,7 +130,8 @@ class AudioCleaner:
         audio_np = denoised_waveform.squeeze().cpu().numpy()
         audio_int16 = (audio_np * 32767).astype(np.int16)
         wavfile.write(str(output_path), sample_rate, audio_int16)
-
+        elapsed = time.perf_counter() - start
+        print(f"clean_audio() took {elapsed:.2f} s")
         return output_path
 
     def cleanup(self):

@@ -166,7 +166,6 @@ def translate_text(text: str):
     tool = TranslateTool()
     try:
         translation = tool.translate(text)
-        print(f"Translation: {translation}")
         return translation
     except ConnectionError:
         print("Warning: Translation skipped -- Ollama is not reachable.")
