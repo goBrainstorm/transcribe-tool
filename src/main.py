@@ -124,6 +124,35 @@ def transcribe_file(audio_path: Path, model_size: str, clean: bool, language: st
         if result["cleaned_path"]:
             print(f"Cleaned audio saved to: {result['cleaned_path']}")
     
+def transcribe_all_files(model_size: str = "tiny", clean: bool = True, language: str = "de", save: bool = True, print_result: bool = False):
+    """
+    Transcribe all audio files from the input directory.
+    
+    Args:
+        model_size: Whisper model size string (e.g., "tiny", "base", "small").
+        clean: Whether to apply noise reduction.
+        language: Language code for transcription.
+        save: Whether to save to XML output.
+        print_result: Whether to print individual results.
+    """
+    file_handler = FileHandler()
+    results = file_handler.transcribe_all_input_files(
+        model_size=model_size,
+        clean=clean,
+        language=language,
+        save=save
+    )
+    
+    if print_result:
+        for result in results:
+            if result["success"]:
+                print(f"\n{result['file'].name}:")
+                print(result["text"])
+                print("-" * 40)
+    
+    return results
+
+    
 
 def transcribe_and_translate_file(audio_path: Path, model_size: str, clean: bool, language: str, save: bool = True, print_result: bool = True):
     """
@@ -247,6 +276,8 @@ def main():
     #     save=not args.no_save,
     #     print_result=False,
     # )
+
+    transcribe_all_files(model_size=args.model)
 
     print(FileHandler().get_all_entries_without_translation())
 

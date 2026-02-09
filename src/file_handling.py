@@ -5,10 +5,14 @@ from datetime import datetime
 import xml.etree.ElementTree as ET
 
 
+AUDIO_EXTENSIONS = {'.mp3', '.wav', '.ogg', '.m4a', '.flac', '.aac', '.opus', '.wma'}
+
+
 class FileHandler:
     """Handles file operations for the transcription tool, including XML output management."""
 
     DEFAULT_MODEL_PATH = Path("models")
+    DEFAULT_INPUT_FOLDER = Path("input")
     DEFAULT_OUTPUT_FOLDER = Path("output")
     OUTPUT_FILE_PATH = DEFAULT_OUTPUT_FOLDER / "output.xml"
 
@@ -343,3 +347,122 @@ class FileHandler:
         print("\n" * 2, "-" *40, "\n" * 2)
         
         return entries_without_translation
+
+    def get_input_audio_files(self) -> list[Path]:
+        """
+        Get all audio files from the input directory.
+        
+        Returns:
+            list[Path]: List of Path objects for audio files found in the input directory.
+        """
+        if not self.DEFAULT_INPUT_FOLDER.exists():
+            return []
+        
+        audio_files = []
+        for file_path in self.DEFAULT_INPUT_FOLDER.iterdir():
+            if file_path.is_file() and file_path.suffix.lower() in AUDIO_EXTENSIONS:
+                audio_files.append(file_path)
+        
+        return sorted(audio_files)
+
+    def transcribe_all_input_files(
+        self,
+        model_size: str = "tiny",
+        clean: bool = True,
+        language: str = "de",
+        save: bool = True
+    ) -> list[dict]:
+        """
+        Transcribe all audio files from the input directory.
+        
+        Args:
+            model_size: Whisper model size string (e.g., "tiny", "base", "small").
+            clean: Whether to apply noise reduction before transcription.
+            language: Language code for transcription (default: "de").
+            save: Whether to save transcriptions to XML output (default: True).
+        
+        Returns:
+            list[dict]: List of results for each transcribed file. Each dict contains:
+                - file: Path to the original audio file
+                - text: The transcription text
+                - segments: List of transcription segments
+                - language: Detected/specified language
+                - success: Boolean indicating if transcription succeeded
+                - error: Error message if transcription failed (None otherwise)
+        """
+        from transcribe_tool import TranscribeTool
+        
+        audio_files = self.get_input_audio_files()
+        
+        if not audio_files:
+            print("No audio files found in input directory.")
+            return []
+        
+        print(f"Found {len(audio_files)} audio file(s) to transcribe:")
+        for audio_file in audio_files:
+            print(f"  - {audio_file.name}")
+        print("-" * 40)
+        
+        results = []
+        
+        # Initialize output file if saving is enabled
+        if save and not self.OUTPUT_FILE_PATH.exists():
+            self.create_output_file()
+        
+        # Use context manager to handle cleanup
+        with TranscribeTool(model_size=model_size) as tool:
+            for audio_file in audio_files:
+                print(f"\nProcessing: {audio_file.name}")
+                
+                result = {
+                    "file": audio_file,
+                    "text": "",
+                    "segments": [],
+                    "language": language,
+                    "success": False,
+                    "error": None
+                }
+                
+                try:
+                    # Transcribe the audio file
+                    transcription_result = tool.process(
+                        audio_path=audio_file,
+                        clean=clean,
+                        language=language
+                    )
+                    
+                    result["text"] = transcription_result["text"]
+                    result["segments"] = transcription_result["segments"]
+                    result["language"] = transcription_result["language"]
+                    result["success"] = True
+                    
+                    print(f"Transcription: {transcription_result['text'][:100]}...")
+                    
+                    # Save to XML if requested
+                    if save:
+                        add_success = self.add_entry(
+                            transcription=transcription_result["text"],
+                            model=model_size,
+                            language=transcription_result["language"]
+                        )
+                        
+                        if add_success:
+                            print(f"Saved to {self.OUTPUT_FILE_PATH}")
+                        else:
+                            print("Warning: Failed to save transcription to XML")
+                
+                except Exception as e:
+                    result["error"] = str(e)
+                    print(f"Error processing {audio_file.name}: {e}")
+                
+                results.append(result)
+        
+        # Summary
+        print("\n" + "=" * 40)
+        print("Transcription Summary:")
+        print(f"Total files: {len(audio_files)}")
+        print(f"Successful: {sum(1 for r in results if r['success'])}")
+        print(f"Failed: {sum(1 for r in results if not r['success'])}")
+        print("=" * 40)
+        
+        return results
