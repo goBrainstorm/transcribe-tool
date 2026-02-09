@@ -104,8 +104,13 @@ class TranslateTool:
         # If source is auto, we try to infer or use a generic prompt.
         
         if source_language == "auto":
-             # For translategemma, explicit source is better, but let's try a direct request
-             prompt = f"Translate to {target_language}: {text}"
+            # For translategemma, explicit source is better, but let's try a direct request
+            prompt = f"""Instruction: Translate the text provided below into {target_language}. Maintain the original tone and style.
+            
+            Input Text: {text}
+            
+            Translation:
+            """
         else:
              prompt = f"Translate from {source_language} to {target_language}: {text}"
 

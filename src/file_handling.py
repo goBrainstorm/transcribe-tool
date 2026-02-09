@@ -107,7 +107,8 @@ class FileHandler:
         model: str = "",
         date: str = None,
         language: str = None,
-        translation: str = None
+        translation: str = None,
+        filename: str = None
     ) -> bool:
         """
         Add an entry to the output XML file with the structured format.
@@ -120,6 +121,7 @@ class FileHandler:
             language: Language code, defaults to "en".
             confidence: Optional confidence score for the transcription.
             translation: Optional translation of the text.
+            filename: Optional original audio filename for tracking.
 
         Returns:
             bool: True if entry was added successfully, False otherwise.
@@ -167,6 +169,10 @@ class FileHandler:
 
         # Create new entry element
         entry = ET.SubElement(root, "entry", id=entry_id, has_date_as_id=has_date_as_id)
+        
+        # Add filename attribute if provided
+        if filename:
+            entry.set("filename", filename)
 
         # 1. Transcription element (with attributes)
         trans_elem = ET.SubElement(entry, "transcription")
@@ -347,6 +353,30 @@ class FileHandler:
         print("\n" * 2, "-" *40, "\n" * 2)
         
         return entries_without_translation
+    
+    def get_transcribed_filenames(self) -> set[str]:
+        """
+        Get all filenames that have already been transcribed.
+        
+        Returns:
+            set[str]: Set of filenames that exist in the output XML.
+        """
+        if not self.OUTPUT_FILE_PATH.exists():
+            return set()
+        
+        try:
+            tree = ET.parse(self.OUTPUT_FILE_PATH)
+            root = tree.getroot()
+        except ET.ParseError:
+            return set()
+        
+        filenames = set()
+        for entry in root.findall("entry"):
+            filename = entry.get("filename")
+            if filename:
+                filenames.add(filename)
+        
+        return filenames
 
     def get_input_audio_files(self) -> list[Path]:
         """
@@ -370,7 +400,8 @@ class FileHandler:
         model_size: str = "tiny",
         clean: bool = True,
         language: str = "de",
-        save: bool = True
+        save: bool = True,
+        skip_existing: bool = True
     ) -> list[dict]:
         """
         Transcribe all audio files from the input directory.
@@ -380,6 +411,7 @@ class FileHandler:
             clean: Whether to apply noise reduction before transcription.
             language: Language code for transcription (default: "de").
             save: Whether to save transcriptions to XML output (default: True).
+            skip_existing: Whether to skip files that have already been transcribed (default: True).
         
         Returns:
             list[dict]: List of results for each transcribed file. Each dict contains:
@@ -398,7 +430,19 @@ class FileHandler:
             print("No audio files found in input directory.")
             return []
         
-        print(f"Found {len(audio_files)} audio file(s) to transcribe:")
+        # Filter out already transcribed files if skip_existing is True
+        if skip_existing:
+            transcribed_filenames = self.get_transcribed_filenames()
+            audio_files = [f for f in audio_files if f.name not in transcribed_filenames]
+            
+            if not audio_files:
+                print("All files in input directory have already been transcribed.")
+                return []
+            
+            print(f"Found {len(audio_files)} new audio file(s) to transcribe:")
+        else:
+            print(f"Found {len(audio_files)} audio file(s) to transcribe:")
+        
         for audio_file in audio_files:
             print(f"  - {audio_file.name}")
         print("-" * 40)
@@ -443,7 +487,8 @@ class FileHandler:
                         add_success = self.add_entry(
                             transcription=transcription_result["text"],
                             model=model_size,
-                            language=transcription_result["language"]
+                            language=transcription_result["language"],
+                            filename=audio_file.name
                         )
                         
                         if add_success:
