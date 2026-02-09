@@ -5,6 +5,11 @@ Ollama handler for managing connections and interactions with the Ollama service
 from typing import List, Dict, Any, Optional
 
 try:
+    import tiktoken  # type: ignore[import-untyped]
+except ImportError:
+    tiktoken = None  # type: ignore[assignment]
+
+try:
     import ollama
     from ollama import Client
 except ImportError:
@@ -118,7 +123,11 @@ class OllamaHandler:
         try:
             # We don't explicitly check is_running() here to save a round trip,
             # trusting the client to raise an error if connection fails.
-            response = self.client.generate(model=model, prompt=prompt, **kwargs)
+            num_tokens = self.get_token_count(prompt)
+            if num_tokens > 4096/2:
+                response = self.client.generate(model=model, prompt=prompt, **kwargs)
+            else:
+                response = self.client.generate(model=model, prompt=prompt, **kwargs)
             return response['response']
         except Exception as e:
             str_e = str(e).lower()
@@ -133,3 +142,13 @@ class OllamaHandler:
                     f"Please pull it using: ollama pull {model}"
                 ) from e
             raise e
+
+    def get_token_count(self, text: str, encoding_name: str = "cl100k_base") -> int:
+        """Return token count for text (for context length checks)."""
+        if tiktoken is None:
+            raise ImportError(
+                "The 'tiktoken' library is not installed. "
+                "Please install it with: pip install tiktoken"
+            )
+        encoding = tiktoken.get_encoding(encoding_name)
+        return len(encoding.encode(text))
