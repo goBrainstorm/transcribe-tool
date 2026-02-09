@@ -105,17 +105,21 @@ def transcribe_file(audio_path: Path, model_size: str, clean: bool, language: st
             file_handler = FileHandler()
             if not file_handler.OUTPUT_FILE_PATH.exists():
                 file_handler.create_output_file()
-            success = file_handler.add_entry(
-                transcription=result["text"],
-                model=model_size,
-                language=language,
-                translation=translate_text(result["text"], language),
-                filename=audio_path.name
-            )
-            if success:
-                print("Transcription saved to output/output.xml")
+            transcription_id = file_handler._generate_transcription_id(result["text"])
+            if file_handler.entry_exists_by_filename(audio_path.name) or file_handler.entry_exists_by_id(transcription_id):
+                print("Skipping save: entry already exists in output.")
             else:
-                print("Warning: Failed to save transcription.")
+                success = file_handler.add_entry(
+                    transcription=result["text"],
+                    model=model_size,
+                    language=language,
+                    translation=translate_text(result["text"], language),
+                    filename=audio_path.name
+                )
+                if success:
+                    print("Transcription saved to output/output.xml")
+                else:
+                    print("Warning: Failed to save transcription.")
 
         if print_result:
             print("\nTranscription:")

@@ -20,6 +20,12 @@ class FileHandler:
         """Initialize the FileHandler instance."""
         pass  # TODO: add functionality to create new individual output files
 
+    @staticmethod
+    def _generate_transcription_id(transcription: str) -> str:
+        """Generate a stable entry ID from transcription text."""
+        transcription = transcription or ""
+        return f"ID-{hashlib.md5(transcription.encode()).hexdigest()[:8]}"
+
     def get_available_models(self) -> list:
         """
         Get list of available whisper models (locally downloaded).
@@ -139,10 +145,6 @@ class FileHandler:
             except (ValueError, TypeError):
                 return False
 
-        def generate_hash(text: str) -> str:
-            """Generate a short hash from the transcription text."""
-            return hashlib.md5(text.encode()).hexdigest()[:8]
-
         # Check if output file exists
         if not self.OUTPUT_FILE_PATH.exists():
             return False
@@ -155,7 +157,7 @@ class FileHandler:
             # Date is invalid, need to create hash from transcription
             if not transcription or transcription.strip() == "":
                 raise ValueError("Cannot generate entry ID: date is invalid and transcription is empty.")
-            entry_id = f"ID-{generate_hash(transcription)}"
+            entry_id = self._generate_transcription_id(transcription)
             has_date_as_id = "0"
     
         # Parse existing XML
@@ -378,6 +380,29 @@ class FileHandler:
         
         return filenames
 
+    def get_entry_ids(self) -> set[str]:
+        """Get all entry IDs from the output XML."""
+        if not self.OUTPUT_FILE_PATH.exists():
+            return set()
+        try:
+            tree = ET.parse(self.OUTPUT_FILE_PATH)
+            root = tree.getroot()
+        except ET.ParseError:
+            return set()
+        return {entry.get("id") for entry in root.findall("entry") if entry.get("id")}
+
+    def entry_exists_by_id(self, entry_id: str) -> bool:
+        """Check if an entry with the given ID already exists."""
+        if not entry_id:
+            return False
+        return entry_id in self.get_entry_ids()
+
+    def entry_exists_by_filename(self, filename: str) -> bool:
+        """Check if an entry with the given filename already exists."""
+        if not filename:
+            return False
+        return filename in self.get_transcribed_filenames()
+
     def get_input_audio_files(self) -> list[Path]:
         """
         Get all audio files from the input directory.
@@ -484,17 +509,21 @@ class FileHandler:
                     
                     # Save to XML if requested
                     if save:
-                        add_success = self.add_entry(
-                            transcription=transcription_result["text"],
-                            model=model_size,
-                            language=transcription_result["language"],
-                            filename=audio_file.name
-                        )
-                        
-                        if add_success:
-                            print(f"Saved to {self.OUTPUT_FILE_PATH}")
+                        transcription_id = self._generate_transcription_id(transcription_result["text"])
+                        if self.entry_exists_by_filename(audio_file.name) or self.entry_exists_by_id(transcription_id):
+                            print("Skipping save: entry already exists in output.")
                         else:
-                            print("Warning: Failed to save transcription to XML")
+                            add_success = self.add_entry(
+                                transcription=transcription_result["text"],
+                                model=model_size,
+                                language=transcription_result["language"],
+                                filename=audio_file.name
+                            )
+                            
+                            if add_success:
+                                print(f"Saved to {self.OUTPUT_FILE_PATH}")
+                            else:
+                                print("Warning: Failed to save transcription to XML")
                 
                 except Exception as e:
                     result["error"] = str(e)
