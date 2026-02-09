@@ -11,6 +11,7 @@ import tempfile
 import shutil
 import subprocess
 import os
+import time
 
 import numpy as np
 import torch
@@ -265,38 +266,42 @@ class TranscribeTool:
                 - cleaned_path: Path to cleaned audio (if clean=True)
         """
         audio_path = Path(audio_path)
-        result = {
-            "text": "",
-            "segments": [],
-            "cleaned_path": None,
-        }
-        max_denoise_mb = int(os.getenv("TRANSCRIBE_MAX_DENOISE_MB", "50"))
-        max_denoise_bytes = max_denoise_mb * 1024 * 1024 # Only denoise if file is smallerthan 50MB
-        file_size_bytes = audio_path.stat().st_size
+        start = time.perf_counter()
+        try:
+            result = {
+                "text": "",
+                "segments": [],
+                "cleaned_path": None,
+            }
+            max_denoise_mb = int(os.getenv("TRANSCRIBE_MAX_DENOISE_MB", "50"))
+            max_denoise_bytes = max_denoise_mb * 1024 * 1024 # Only denoise if file is smallerthan 50MB
+            file_size_bytes = audio_path.stat().st_size
 
-        # Step 1: Clean audio if requested
-        # if clean and file_size_bytes > max_denoise_bytes:
-        #     clean = False
-        #     print(
-        #         f"Skipping denoiser: file is {file_size_bytes / (1024 * 1024):.1f} MB "
-        #         f"(limit {max_denoise_mb} MB)."
-        #     )
+            # Step 1: Clean audio if requested
+            # if clean and file_size_bytes > max_denoise_bytes:
+            #     clean = False
+            #     print(
+            #         f"Skipping denoiser: file is {file_size_bytes / (1024 * 1024):.1f} MB "
+            #         f"(limit {max_denoise_mb} MB)."
+            #     )
 
-        if clean:
-            cleaned_path = self.cleaner.clean_audio(audio_path)
-            result["cleaned_path"] = cleaned_path
-            transcribe_path = cleaned_path
-        else:
-            transcribe_path = audio_path
-            
+            if clean:
+                cleaned_path = self.cleaner.clean_audio(audio_path)
+                result["cleaned_path"] = cleaned_path
+                transcribe_path = cleaned_path
+            else:
+                transcribe_path = audio_path
 
-        # Step 2: Transcribe
-        transcription = self.transcriber.transcribe(transcribe_path, language=language)
-        result["text"] = transcription["text"]
-        result["segments"] = transcription["segments"]
-        result["language"] = transcription["language"]
+            # Step 2: Transcribe
+            transcription = self.transcriber.transcribe(transcribe_path, language=language)
+            result["text"] = transcription["text"]
+            result["segments"] = transcription["segments"]
+            result["language"] = transcription["language"]
 
-        return result
+            return result
+        finally:
+            elapsed = time.perf_counter() - start
+            print(f"process() took {elapsed:.2f} s")
 
     def get_available_models(self) -> list:
         """Get list of available whisper models."""

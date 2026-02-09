@@ -3,6 +3,7 @@ Ollama handler for managing connections and interactions with the Ollama service
 """
 
 from typing import List, Dict, Any, Optional
+import time
 
 try:
     import tiktoken  # type: ignore[import-untyped]
@@ -120,6 +121,7 @@ class OllamaHandler:
             ConnectionError: If Ollama is not reachable.
             ValueError: If the model is not found or other error occurs.
         """
+        start = time.perf_counter()
         try:
             # We don't explicitly check is_running() here to save a round trip,
             # trusting the client to raise an error if connection fails.
@@ -142,6 +144,9 @@ class OllamaHandler:
                     f"Please pull it using: ollama pull {model}"
                 ) from e
             raise e
+        finally:
+            elapsed = time.perf_counter() - start
+            print(f"generate() took {elapsed:.2f} s")
 
     def get_token_count(self, text: str, encoding_name: str = "cl100k_base") -> int:
         """Return token count for text (for context length checks)."""
@@ -150,5 +155,9 @@ class OllamaHandler:
                 "The 'tiktoken' library is not installed. "
                 "Please install it with: pip install tiktoken"
             )
+        start = time.perf_counter()
         encoding = tiktoken.get_encoding(encoding_name)
-        return len(encoding.encode(text))
+        token_count = len(encoding.encode(text))
+        elapsed = time.perf_counter() - start
+        print(f"get_token_count() took {elapsed:.2f} s")
+        return token_count

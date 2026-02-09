@@ -7,6 +7,7 @@ This module provides translation with Ollama and the translategemma model.
 from typing import Optional, List, Dict
 import sys
 import os
+import time
 
 # Ensure we can import from the same directory if run directly
 # This allows running 'python src/translate.py' from project root or src/
@@ -98,6 +99,7 @@ class TranslateTool:
         """
         if not text:
             return ""
+        start = time.perf_counter()
 
         # Construct the prompt for translategemma
         # Format: Translate from [source] to [target]: [text]
@@ -120,6 +122,9 @@ class TranslateTool:
         except Exception as e:
             # Re-raise with context if needed, but handler already raises specific errors
             raise e
+        finally:
+            elapsed = time.perf_counter() - start
+            print(f"translate() took {elapsed:.2f} s")
 
     def check_health(self) -> Dict[str, bool]:
         """
