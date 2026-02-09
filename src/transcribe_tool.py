@@ -11,6 +11,8 @@ import tempfile
 import shutil
 import subprocess
 import os
+import json
+import time
 
 import numpy as np
 import torch
@@ -18,6 +20,24 @@ from audio_denoiser.AudioDenoiser import AudioDenoiser
 from faster_whisper import WhisperModel
 
 from file_handling import FileHandler
+
+
+def _debug_log(message: str, data: dict, hypothesis_id: str, location: str, run_id: str = "pre-fix") -> None:
+    log_path = "/home/gobrainstorm/Documents/coding/transcribe-tool/.cursor/debug.log"
+    payload = {
+        "id": f"log_{int(time.time() * 1000)}_{os.getpid()}",
+        "timestamp": int(time.time() * 1000),
+        "location": location,
+        "message": message,
+        "data": data,
+        "runId": run_id,
+        "hypothesisId": hypothesis_id,
+    }
+    try:
+        with open(log_path, "a", encoding="utf-8") as log_file:
+            log_file.write(json.dumps(payload) + "\n")
+    except OSError:
+        pass
 
 
 def load_audio_with_ffmpeg(input_path: Path, sample_rate: int = 16000) -> tuple[torch.Tensor, int]:
@@ -270,14 +290,71 @@ class TranscribeTool:
             "segments": [],
             "cleaned_path": None,
         }
+        max_denoise_mb = int(os.getenv("TRANSCRIBE_MAX_DENOISE_MB", "50"))
+        max_denoise_bytes = max_denoise_mb * 1024 * 1024
+        file_size_bytes = audio_path.stat().st_size
+        # region agent log
+        _debug_log(
+            "process_entry",
+            {
+                "audio_path": str(audio_path),
+                "clean": clean,
+                "language": language,
+                "file_size_bytes": file_size_bytes,
+                "max_denoise_bytes": max_denoise_bytes,
+                "max_denoise_mb": max_denoise_mb,
+            },
+            "H1",
+            "transcribe_tool.py:287",
+        )
+        # endregion
 
         # Step 1: Clean audio if requested
+        if clean and file_size_bytes > max_denoise_bytes:
+            clean = False
+            print(
+                f"Skipping denoiser: file is {file_size_bytes / (1024 * 1024):.1f} MB "
+                f"(limit {max_denoise_mb} MB)."
+            )
+            # region agent log
+            _debug_log(
+                "skip_denoise_due_to_size",
+                {"file_size_bytes": file_size_bytes, "max_denoise_bytes": max_denoise_bytes},
+                "H2",
+                "transcribe_tool.py:303",
+            )
+            # endregion
+        # Step 1: Clean audio if requested
         if clean:
+            # region agent log
+            _debug_log(
+                "denoise_start",
+                {"file_size_bytes": file_size_bytes},
+                "H3",
+                "transcribe_tool.py:315",
+            )
+            # endregion
             cleaned_path = self.cleaner.clean_audio(audio_path)
             result["cleaned_path"] = cleaned_path
             transcribe_path = cleaned_path
+            # region agent log
+            _debug_log(
+                "denoise_done",
+                {"cleaned_path": str(cleaned_path)},
+                "H3",
+                "transcribe_tool.py:322",
+            )
+            # endregion
         else:
             transcribe_path = audio_path
+            # region agent log
+            _debug_log(
+                "denoise_skipped",
+                {"transcribe_path": str(transcribe_path)},
+                "H2",
+                "transcribe_tool.py:329",
+            )
+            # endregion
 
         # Step 2: Transcribe
         transcription = self.transcriber.transcribe(transcribe_path, language=language)
