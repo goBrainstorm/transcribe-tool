@@ -277,16 +277,16 @@ class TranscribeTool:
                 "cleaned_path": None,
             }
             max_denoise_mb = int(os.getenv("TRANSCRIBE_MAX_DENOISE_MB", "50"))
-            max_denoise_bytes = max_denoise_mb * 1024 * 1024 # Only denoise if file is smallerthan 50MB
+            max_denoise_bytes = max_denoise_mb * 1024 * 1024
             file_size_bytes = audio_path.stat().st_size
 
-            # Step 1: Clean audio if requested
-            # if clean and file_size_bytes > max_denoise_bytes:
-            #     clean = False
-            #     print(
-            #         f"Skipping denoiser: file is {file_size_bytes / (1024 * 1024):.1f} MB "
-            #         f"(limit {max_denoise_mb} MB)."
-            #     )
+            # Step 1: Clean audio if requested and under threshold
+            if clean and file_size_bytes > max_denoise_bytes:
+                clean = False
+                print(
+                    f"Skipping denoiser: file is {file_size_bytes / (1024 * 1024):.1f} MB "
+                    f"(limit {max_denoise_mb} MB)."
+                )
 
             if clean:
                 cleaned_path = self.cleaner.clean_audio(audio_path)

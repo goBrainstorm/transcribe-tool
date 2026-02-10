@@ -4,8 +4,6 @@ Ollama handler for managing connections and interactions with the Ollama service
 
 from typing import List, Dict, Any, Optional
 import time
-import json
-import uuid
 
 try:
     import tiktoken  # type: ignore[import-untyped]
@@ -40,24 +38,6 @@ class OllamaHandler:
         
         self.host = host
         self.client = Client(host=host)
-
-    def _debug_log(self, run_id: str, hypothesis_id: str, location: str, message: str, data: Dict[str, Any]) -> None:
-        # region agent log
-        try:
-            payload = {
-                "id": f"log_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}",
-                "timestamp": int(time.time() * 1000),
-                "runId": run_id,
-                "hypothesisId": hypothesis_id,
-                "location": location,
-                "message": message,
-                "data": data,
-            }
-            with open("/home/gobrainstorm/Documents/coding/transcribe-tool/.cursor/debug.log", "a", encoding="utf-8") as f:
-                f.write(json.dumps(payload, ensure_ascii=True) + "\n")
-        except Exception:
-            pass
-        # endregion
 
     def is_running(self) -> bool:
         """
@@ -146,61 +126,13 @@ class OllamaHandler:
             # We don't explicitly check is_running() here to save a round trip,
             # trusting the client to raise an error if connection fails.
             num_tokens = self.get_token_count(prompt)
-            # region agent log
-            self._debug_log(
-                run_id="pre-fix",
-                hypothesis_id="H1_H5",
-                location="src/ollama_handler.py:generate",
-                message="Computed prompt token count for translation generation",
-                data={
-                    "model": model,
-                    "prompt_chars": len(prompt),
-                    "num_tokens": num_tokens,
-                    "threshold": 2048,
-                },
-            )
-            # endregion
             if num_tokens > (4096/2):
-                # region agent log
-                self._debug_log(
-                    run_id="pre-fix",
-                    hypothesis_id="H1",
-                    location="src/ollama_handler.py:generate",
-                    message="Using extended context generation path",
-                    data={"num_ctx": 8096, "num_tokens": num_tokens},
-                )
-                # endregion
                 response = self.client.generate(model=model, prompt=prompt, options={"num_ctx": 8096})
             else:
-                # region agent log
-                self._debug_log(
-                    run_id="pre-fix",
-                    hypothesis_id="H1",
-                    location="src/ollama_handler.py:generate",
-                    message="Using default context generation path",
-                    data={"num_tokens": num_tokens},
-                )
-                # endregion
                 response = self.client.generate(model=model, prompt=prompt)
             return response['response']
         except Exception as e:
             str_e = str(e).lower()
-            # region agent log
-            self._debug_log(
-                run_id="pre-fix",
-                hypothesis_id="H2_H3_H4",
-                location="src/ollama_handler.py:generate",
-                message="Caught exception during ollama generate",
-                data={
-                    "error_type": type(e).__name__,
-                    "error_text": str(e),
-                    "contains_connection_refused": "connection refused" in str_e,
-                    "contains_failed_to_connect": "failed to connect" in str_e,
-                    "contains_model_not_found": ("model" in str_e and "not found" in str_e),
-                    "host": self.host,
-                },
-            )
-            # endregion
             if "connection refused" in str_e or "newconnectionerror" in str_e or "failed to connect" in str_e:
                  raise ConnectionError(
                     f"Ollama service at {self.host} is not reachable. "

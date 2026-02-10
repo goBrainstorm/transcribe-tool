@@ -8,32 +8,10 @@ Usage:
 import argparse
 from pathlib import Path
 from typing import Optional
-import json
-import time
-import uuid
 
 from transcribe_tool import TranscribeTool
 from file_handling import FileHandler
 from translate import TranslateTool
-
-
-def _debug_log(run_id: str, hypothesis_id: str, location: str, message: str, data: dict):
-    # region agent log
-    try:
-        payload = {
-            "id": f"log_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}",
-            "timestamp": int(time.time() * 1000),
-            "runId": run_id,
-            "hypothesisId": hypothesis_id,
-            "location": location,
-            "message": message,
-            "data": data,
-        }
-        with open("/home/gobrainstorm/Documents/coding/transcribe-tool/.cursor/debug.log", "a", encoding="utf-8") as f:
-            f.write(json.dumps(payload, ensure_ascii=True) + "\n")
-    except Exception:
-        pass
-    # endregion
 
 
 def parse_args():
@@ -196,27 +174,9 @@ def translate_text(text: str, translator: TranslateTool, target_language: str = 
     Translate the given text to the target language.
     """
     try:
-        # region agent log
-        _debug_log(
-            run_id="pre-fix",
-            hypothesis_id="H5",
-            location="src/main.py:translate_text",
-            message="Entering translate_text",
-            data={"target_language": target_language, "text_chars": len(text or "")},
-        )
-        # endregion
         translation = translator.translate(text, target_language=target_language)
         return translation
     except ConnectionError:
-        # region agent log
-        _debug_log(
-            run_id="pre-fix",
-            hypothesis_id="H3",
-            location="src/main.py:translate_text",
-            message="Translation skipped due to ConnectionError",
-            data={"target_language": target_language},
-        )
-        # endregion
         print("Warning: Translation skipped -- Ollama is not reachable.")
         return None
 
@@ -230,15 +190,6 @@ def translate_entries_without_translation(ids: list[str], translator: TranslateT
     file_handler = FileHandler()
     for entry_id in ids:
         content = file_handler.get_transcription_content(entry_id)
-        # region agent log
-        _debug_log(
-            run_id="pre-fix",
-            hypothesis_id="H5",
-            location="src/main.py:translate_entries_without_translation",
-            message="Translating entry without translation",
-            data={"entry_id": entry_id, "content_chars": len(content or "")},
-        )
-        # endregion
         translation = translate_text(
             content,
             translator
