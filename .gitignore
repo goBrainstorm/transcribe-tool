@@ -1,8 +1,9 @@
-# Output and Input folder
+# Output: only output_example.xml is tracked
 output/*
 !output/output_example.xml
 
-input/*
+# Input: nothing tracked
+input/
 
 # dont track models folder
 models/
