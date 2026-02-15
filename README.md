@@ -2,7 +2,7 @@
 A tool to transcribe recordings with [**faster-whisper**](https://github.com/SYSTRAN/faster-whisper) (CTranslate2) and [**ffmpeg**](https://ffmpeg.org/).
 
 ## Idea of the project
-I want to transcribe all of my voice messages that I save for myself. The target is to transcribe them with whisper, then summarize them and save information from them with a locally running LLM.
+I want to transcribe all of my voice messages that I save for myself. The target is to transcribe them with whisper, then summarize them and save gathered information (information as in ideas, thoughts, location, mood, people, etc.) with a locally running LLM.
 
 ### Structure of the Project
 
@@ -52,33 +52,17 @@ pip install -r requirements.txt
 
 Requires `ffmpeg` to be installed on your system.
 
-## Usage
+## Usage - transcribes all files located in `input/`
 
 ```bash
 # Basic transcription (downloads 'tiny' model on first run)
-python src/main.py recording.m4a
+python src/main.py
 
 # Use a larger model
-python src/main.py recording.m4a --model large-v3-turbo
+python src/main.py --model large-v3-turbo
 
 # Skip noise reduction
-python src/main.py recording.m4a --no-clean
-
-# Different language
-python src/main.py recording.m4a --language en
-
-# List available models
-python src/main.py --list-models
-```
-
-Or use the convenience script which handles the virtual environment:
-
-```bash
-./run.sh recording.m4a
-./run.sh recording.m4a --model small --language en
+python src/main.py --no-clean
 ```
 
 Transcriptions are saved to `output/output.xml`.
-
-## Precursor
-I want to use as little vibe coding as possible; but I will be using AI to help me.
