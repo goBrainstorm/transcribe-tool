@@ -13,7 +13,6 @@ from transcribe_tool import TranscribeTool
 from file_handling import FileHandler
 from translate import TranslateTool
 
-
 def parse_args():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
@@ -33,15 +32,9 @@ def parse_args():
              "large-v3, large-v3-turbo). Default: tiny"
     )
     parser.add_argument(
-        "--no-clean",
-        action="store_true",
-        help="Skip audio noise reduction"
-    )
-    parser.add_argument(
         "--language",
         type=str,
-        default="de",
-        help="Language code for transcription (default: de)"
+        help="Language code for transcription"
     )
     parser.add_argument(
         "--no-save",
@@ -55,11 +48,9 @@ def parse_args():
     )
     return parser.parse_args()
 
-
 def list_available_models():
     """List all available whisper models (locally downloaded)."""
-    file_handler = FileHandler()
-    models = file_handler.get_available_models()
+    models = FileHandler.get_available_models()
 
     print("Known faster-whisper model sizes:")
     print("  tiny, base, small, medium, large-v3, large-v3-turbo")
@@ -71,7 +62,7 @@ def list_available_models():
             print(f"  - {model}")
     else:
         print("No models downloaded locally yet.")
-        print("Run: python models/download_model.py <model_size>  (e.g., python models/download_model.py tiny)")
+        print("Run: python src/download_model.py <model_size>  (e.g., python src/download_model.py tiny)")
 
 
 def transcribe_file(
@@ -180,21 +171,6 @@ def translate_text(text: str, translator: TranslateTool, target_language: str = 
         print("Warning: Translation skipped -- Ollama is not reachable.")
         return None
 
-def translate_entries_without_translation(ids: list[str], translator: TranslateTool):
-    """
-    Translate all entries without a translation.
-    """
-    if len(ids) == 0:
-        return
-    print(f"Translating {len(ids)} entries without translation: {ids}")
-    file_handler = FileHandler()
-    for entry_id in ids:
-        content = file_handler.get_transcription_content(entry_id)
-        translation = translate_text(
-            content,
-            translator
-        )
-        file_handler.update_entry(entry_id, translation=translation)
 
 def main():
     """Main entry point."""
@@ -203,29 +179,12 @@ def main():
     if args.list_models:
         list_available_models()
         return
+    else:
+        print(f"Arguments provided: {args}")
+        return
 
-    # if args.audio_file is None:
-    #     print("Error: Please provide an audio file to transcribe.")
-    #     print("Usage: python main.py <audio_file> [options]")
-    #     print("Use --help for more information.")
-    #     return
-
-    # transcribe_and_translate_file(
-    #     audio_path=args.audio_file,
-    #     model_size=args.model,
-    #     clean=not args.no_clean,
-    #     language=args.language,
-    #     save=not args.no_save,
-    #     print_result=False,
-    # )
-
-    transcribe_all_files(model_size=args.model)
-
-    translator = TranslateTool()
-    missing_translation_ids = FileHandler().get_all_entries_without_translation()
-    print(missing_translation_ids)
-    translate_entries_without_translation(missing_translation_ids, translator)
-
+    
+    
 
 
 if __name__ == "__main__":

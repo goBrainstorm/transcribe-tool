@@ -17,7 +17,7 @@ class FileHandler:
 
     def __init__(self):
         """Initialize the FileHandler instance."""
-        pass  # TODO: add functionality to create new individual output files
+        self.root = ET.Element("entries")
 
     @staticmethod
     def _generate_transcription_id(transcription: str) -> str:
@@ -25,22 +25,27 @@ class FileHandler:
         transcription = transcription or ""
         return f"ID-{hashlib.md5(transcription.encode()).hexdigest()[:8]}"
 
-    def get_available_models(self) -> list:
+    
+    # TODO: buggy. Does not work with faster-whisper models.
+    @staticmethod
+    def get_available_models() -> list:
         """
         Get list of available whisper models (locally downloaded).
 
         Returns:
             list: List of model names found in the models directory.
         """
-        if not self.DEFAULT_MODEL_PATH.exists():
+        if not FileHandler.DEFAULT_MODEL_PATH.exists():
+            print(f"Error: Models directory not found: {FileHandler.DEFAULT_MODEL_PATH}")
             return []
 
         models = []
-        for d in self.DEFAULT_MODEL_PATH.iterdir():
+        for d in FileHandler.DEFAULT_MODEL_PATH.iterdir():
             if d.is_dir() and (d / "model.bin").exists():
                 models.append(d.name)
         return sorted(models)
 
+    
     def create_output_file(self) -> bool:
         """
         Create an XML file at OUTPUT_FILE_PATH with the base transcriptions structure.
@@ -56,7 +61,7 @@ class FileHandler:
             self.DEFAULT_OUTPUT_FOLDER.mkdir(parents=True, exist_ok=True)
 
             # Create XML content with base structure
-            xml_content = '<?xml version="1.0" encoding="UTF-8"?>\n<transcriptions>\n</transcriptions>'
+            xml_content = '<?xml version="1.0" encoding="UTF-8"?>\n<entries>\n</entries>'
 
             # Write the XML file
             self.OUTPUT_FILE_PATH.write_text(xml_content, encoding='utf-8')
@@ -86,7 +91,7 @@ class FileHandler:
         except ET.ParseError:
             return None
 
-    def get_transcription_content(self, entry_id: str) -> str:
+    def get_transcription_from_entry_id(self, entry_id: str) -> str:
         """
         Get the transcription content from an entry by its ID.
         
@@ -113,7 +118,7 @@ class FileHandler:
         date: str = None,
         language: str = None,
         translation: str = None,
-        filename: str = None
+        filename: str = ""
     ) -> bool:
         """
         Add an entry to the output XML file with the structured format.
@@ -165,7 +170,7 @@ class FileHandler:
             root = tree.getroot()
         except ET.ParseError:
             # File might be malformed or empty, try to create root element
-            root = ET.Element("transcriptions")
+            root = ET.Element("entries")
             tree = ET.ElementTree(root)
 
         # Create new entry element
@@ -176,16 +181,16 @@ class FileHandler:
             entry.set("filename", filename)
 
         # 1. Transcription element (with attributes)
-        trans_elem = ET.SubElement(entry, "transcription")
+        transcription_elem = ET.SubElement(entry, "transcription")
         if language:
-            trans_elem.set("language", language)
+            transcription_elem.set("language", language)
         if model:
-            trans_elem.set("model", model)
-        trans_elem.text = f"\n{transcription.strip()}\n" if transcription else ""
+            transcription_elem.set("model", model)
+        transcription_elem.text = f"\n{transcription.strip()}\n" if transcription else ""
 
         # 2. Translation element
-        trans_elem = ET.SubElement(entry, "translation")
-        trans_elem.text = f"\n{translation.strip()}\n" if translation else ""
+        translation_elem = ET.SubElement(entry, "translation")
+        translation_elem.text = f"\n{translation.strip()}\n" if translation else ""
 
         # 3. Extracted Information
         extracted_info = ET.SubElement(entry, "extracted_information")
@@ -199,7 +204,7 @@ class FileHandler:
 
         # Write back to file with proper formatting
         try:
-            ET.indent(tree, space="    ")
+            ET.indent(tree)
             tree.write(self.OUTPUT_FILE_PATH, encoding="unicode", xml_declaration=True)
             return True
         except (IOError, OSError) as e:
@@ -316,20 +321,27 @@ class FileHandler:
         Returns:
             str: The ID of the last entry, or None if no entries exist.
         """
-        if not self.OUTPUT_FILE_PATH.exists():
-            return None
+        
 
+        return self.get_all_entries()[-1].get("id") # TODO: test this
+
+    def get_all_entries(self) -> list:
+        """
+        Get all entries from the output XML file.
+        
+        Returns:
+            list: List of entry elements.
+        """
+        if not self.OUTPUT_FILE_PATH.exists():
+            print(f"Error: Output file not found: {self.OUTPUT_FILE_PATH}")
+            return []
         try:
             tree = ET.parse(self.OUTPUT_FILE_PATH)
             root = tree.getroot()
+            return root.findall("entry")
         except ET.ParseError:
-            return None
-
-        entries = root.findall("entry")
-        if not entries:
-            return None
-
-        return entries[-1].get("id")
+            print(f"Error: Failed to parse output file: {self.OUTPUT_FILE_PATH}")
+            return []
 
     def get_all_entries_without_translation(self) -> list:
         """
@@ -343,15 +355,13 @@ class FileHandler:
         tree = ET.parse(self.OUTPUT_FILE_PATH)
         root = tree.getroot()
         
-        print("Getting all entries without translation: ")
+        print("\n"*2 + "Getting all entries without translation..." + "\n"*2)
         entries_without_translation = []
         for entry in root.findall("entry"):
             translation_elem = entry.find("translation")
             # Check if translation element doesn't exist or has no text or only whitespace
             if translation_elem is None or not translation_elem.text or translation_elem.text.strip() == "":
                 entries_without_translation.append(entry.get("id"))
-
-        print("\n" * 2, "-" *40, "\n" * 2)
         
         return entries_without_translation
     
