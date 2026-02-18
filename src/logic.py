@@ -70,7 +70,7 @@ class Logic:
             if not file_handler.OUTPUT_FILE_PATH.exists():
                 file_handler.create_output_file()
 
-            transcription_id = file_handler._generate_transcription_id(result["text"])
+            transcription_id = file_handler._generate_transcription_id(result["text"]) # TODO: what if text is empty?
             already_exists = (
                 file_handler.entry_exists_by_filename(audio_path.name)
                 or file_handler.entry_exists_by_id(transcription_id)
@@ -80,7 +80,7 @@ class Logic:
                 Logic.log("Skipping save: entry already exists in output.", debug)
             else:
                 translation = Logic.translate_text(
-                    text=result["text"],
+                    text=result["text"], # TODO: what if text is empty?
                     translator=translator,
                     target_language=language,
                     debug=debug,
@@ -166,6 +166,7 @@ class Logic:
 
             results.append(result)
 
+        # TODO: add translation summary
         print("\n" + "=" * 40)
         print("Transcription Summary:")
         print(f"Total files: {len(audio_files)}")

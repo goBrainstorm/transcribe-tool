@@ -23,6 +23,14 @@ class OllamaHandler:
     Handles interactions with the Ollama service.
     """
 
+    # TODO: count faulty translations:
+    # ========================================
+    # Transcription Summary:
+    # Total files: 1
+    # Successful: 1
+    # Failed: 0
+    # ========================================
+
     def __init__(self, host: str = "http://localhost:11434"):
         """
         Initialize the Ollama handler.
@@ -130,7 +138,7 @@ class OllamaHandler:
                 response = self.client.generate(model=model, prompt=prompt, options={"num_ctx": 8096})
             else:
                 response = self.client.generate(model=model, prompt=prompt)
-            return response['response']
+            return response['response'] # TODO: sooooo many returns that could be used...use em :(
         except Exception as e:
             str_e = str(e).lower()
             if "connection refused" in str_e or "newconnectionerror" in str_e or "failed to connect" in str_e:

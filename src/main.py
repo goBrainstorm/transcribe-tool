@@ -126,6 +126,8 @@ def main() -> None:
             )
             return
 
+        # TODO: translate files that have not been translated
+        # TODO: test transcription for files that have not been transcripted
         Logic.process_files_from_folder(
             file_handler=file_handler,
             transcribe_tool=transcribe_tool,

@@ -193,7 +193,7 @@ class Transcriber:
         if not audio_path.exists():
             raise FileNotFoundError(f"Audio file not found: {audio_path}")
 
-        # Transcribe using faster-whisper
+        # Transcribe using faster-whisper TODO: add more parameters (play around with them)
         segments_generator, info = self.model.transcribe(
             str(audio_path),
             language=language,
@@ -296,10 +296,11 @@ class TranscribeTool:
                 transcribe_path = audio_path
 
             # Step 2: Transcribe
-            transcription = self.transcriber.transcribe(transcribe_path, language=language)
+            transcription = self.transcriber.transcribe(transcribe_path, language=language) # TODO: what happens to tmp file? eg: PosixPath('/tmp/transcribe_clean_5o9fl8al/test-voice_cleaned.wav')
             result["text"] = transcription["text"]
             result["segments"] = transcription["segments"]
             result["language"] = transcription["language"]
+            # TODO: add language_probability to result
 
             return result
         finally:

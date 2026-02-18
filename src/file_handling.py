@@ -140,7 +140,7 @@ class FileHandler:
         Raises:
             ValueError: If date is invalid and transcription is empty.
         """
-        def valid_date(date_str: str) -> bool:
+        def valid_date(date_str: str) -> bool: # TODO not working ... make it work
             """Check if date string is a valid ISO format datetime."""
             if date_str is None:
                 return False
@@ -438,7 +438,7 @@ class FileHandler:
             if file_path.is_file() and file_path.suffix.lower() in AUDIO_EXTENSIONS:
                 audio_files.append(file_path)
 
-        self._input_audio_files = sorted(audio_files)
+        self._input_audio_files = sorted(audio_files) # TODO: why sort?
         return list(self._input_audio_files)
 
     def get_cached_input_audio_files(self) -> list[Path]:
