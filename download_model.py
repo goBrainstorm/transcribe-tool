@@ -12,6 +12,9 @@ Models are downloaded from Hugging Face and cached in the models/ directory
 so they are available for offline use with the transcription tool.
 """
 
+# TODO: what is this shit: Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+
 import argparse
 import os
 import sys
