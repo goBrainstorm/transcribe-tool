@@ -66,3 +66,31 @@ python src/main.py --no-clean
 ```
 
 Transcriptions are saved to `output/output.xml`.
+
+## Later implementation ideas
+
+- **Responsibility split**
+  - Keep `src/logic.py` as static orchestration/core workflow only.
+  - Keep `src/file_handling.py` as the state holder for input audio file data and XML persistence.
+  - Keep `src/main.py` as the CLI entrypoint that parses args and wires dependencies.
+
+- **Single initialization for heavy tools**
+  - Initialize `TranscribeTool`, `TranslateTool`, and `OllamaHandler` once in `src/main.py`.
+  - Pass initialized instances into `Logic` functions to avoid repeated setup cost.
+
+- **File metadata model**
+  - Introduce a typed file metadata object (for example, a dataclass) with path, name, extension, size, and status fields.
+  - Use this object across logic/persistence instead of loose dictionaries.
+
+- **Queue functionality**
+  - Add a queue class (for example, `TranscriptionQueue`) to manage pending/running/failed/completed files.
+  - Support retries, progress status, and optional persistence of queue state.
+  - Make queue processing the default path for folder-based runs.
+
+- **Logging and observability**
+  - Replace ad-hoc `print` calls with a unified logger and log levels (debug/info/warning/error).
+  - Add runtime metrics for processing time per file and per stage (cleaning, transcription, translation, XML write).
+
+- **Tests**
+  - Add tests for duplicate detection, pending file filtering, malformed XML handling, and queue behavior.
+  - Add integration tests for single-file and folder processing flows.

@@ -18,6 +18,7 @@ class FileHandler:
     def __init__(self):
         """Initialize the FileHandler instance."""
         self.root = ET.Element("entries")
+        self._input_audio_files: list[Path] = []
 
     @staticmethod
     def _generate_transcription_id(transcription: str) -> str:
@@ -419,15 +420,59 @@ class FileHandler:
         Returns:
             list[Path]: List of Path objects for audio files found in the input directory.
         """
+        return self.refresh_input_audio_files()
+
+    def refresh_input_audio_files(self) -> list[Path]:
+        """
+        Scan the input directory and update in-memory file state.
+
+        Returns:
+            list[Path]: Sorted list of detected audio files.
+        """
         if not self.DEFAULT_INPUT_FOLDER.exists():
+            self._input_audio_files = []
             return []
-        
+
         audio_files = []
         for file_path in self.DEFAULT_INPUT_FOLDER.iterdir():
             if file_path.is_file() and file_path.suffix.lower() in AUDIO_EXTENSIONS:
                 audio_files.append(file_path)
-        
-        return sorted(audio_files)
+
+        self._input_audio_files = sorted(audio_files)
+        return list(self._input_audio_files)
+
+    def get_cached_input_audio_files(self) -> list[Path]:
+        """
+        Return the currently cached audio file list without rescanning.
+        """
+        return list(self._input_audio_files)
+
+    def get_audio_file_info(self, file_path: Path) -> dict:
+        """
+        Return normalized metadata for one audio file path.
+        """
+        resolved = Path(file_path)
+        size_bytes = resolved.stat().st_size if resolved.exists() else 0
+        return {
+            "path": resolved,
+            "name": resolved.name,
+            "stem": resolved.stem,
+            "suffix": resolved.suffix.lower(),
+            "size_bytes": size_bytes,
+        }
+
+    def get_pending_audio_files(self, skip_existing: bool = True) -> list[Path]:
+        """
+        Return audio files that should be processed next.
+
+        This uses cached scan state if available, otherwise it performs a scan.
+        """
+        audio_files = self._input_audio_files or self.refresh_input_audio_files()
+        if not skip_existing:
+            return list(audio_files)
+
+        transcribed_filenames = self.get_transcribed_filenames()
+        return [file_path for file_path in audio_files if file_path.name not in transcribed_filenames]
 
     def transcribe_all_input_files(
         self,
