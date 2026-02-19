@@ -74,8 +74,9 @@ def list_available_models() -> None:
     """List all available whisper models (locally downloaded)."""
     models = FileHandler.get_available_models()
 
-    print("Known faster-whisper model sizes:")
-    print("  tiny, base, small, medium, large-v3, large-v3-turbo")
+    print("Known local model sizes (Systran downloader):")
+    print("  tiny, tiny.en, base, base.en, small, small.en, medium, medium.en")
+    print("  large-v1, large-v2, large-v3, distil-large-v2, distil-large-v3")
     print()
 
     if models:
@@ -84,7 +85,7 @@ def list_available_models() -> None:
             print(f"  - {model}")
     else:
         print("No models downloaded locally yet.")
-        print("Run: python models/download_model.py tiny")
+        print("Run: python download_model.py tiny")
 
 
 def _build_translate_tool(disabled: bool = False) -> Optional[TranslateTool]:

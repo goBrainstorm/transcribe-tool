@@ -151,24 +151,28 @@ class Transcriber:
 
         Args:
             model_size: Whisper model size string (e.g., "tiny", "base", "small",
-                       "medium", "large-v3", "large-v3-turbo") or path to a
+                       "medium", "large-v3", "distil-large-v3") or path to a
                        local CTranslate2 model directory.
-            models_dir: Directory for caching downloaded models.
+            models_dir: Directory containing locally downloaded models.
                        If None, uses the default "models/" directory.
         """
         self.models_dir = models_dir or self.DEFAULT_MODELS_DIR
         self.model_size = model_size
-        
-        # Set Hugging Face cache to use our models directory
-        # This ensures models are loaded from our local folder
-        os.environ["HF_HOME"] = str(self.models_dir.absolute())
-        os.environ["HF_HUB_CACHE"] = str(self.models_dir.absolute() / "hub")
-        
-        self.model = WhisperModel(
-            model_size,
-            device="auto",
-            compute_type="int8",
-            download_root=str(self.models_dir)
+
+        model_path = self.models_dir / model_size
+        if model_path.is_dir() and (model_path / "model.bin").exists():
+            # Prefer explicit local model folders to avoid HF cache artifacts in models/.
+            self.model = WhisperModel(
+                str(model_path),
+                device="auto",
+                compute_type="int8",
+                local_files_only=True,
+            )
+            return
+
+        raise FileNotFoundError(
+            f"Model '{model_size}' not found in '{self.models_dir}'. "
+            f"Download it first with: python download_model.py {model_size}"
         )
 
     def transcribe(self, audio_path: Path, language: str = "en") -> dict:

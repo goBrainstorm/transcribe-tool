@@ -21,7 +21,10 @@ transcribe-tool/
 
 ### Models
 
-faster-whisper downloads models from Hugging Face automatically on first use. Available sizes:
+Models are downloaded from the Systran faster-whisper repositories on Hugging Face
+and stored in clean local folders: `models/<model_name>/`.
+
+Supported download targets:
 
 | Size | Notes |
 |------|-------|
@@ -29,17 +32,18 @@ faster-whisper downloads models from Hugging Face automatically on first use. Av
 | `base`, `base.en` | Good for quick tests |
 | `small`, `small.en` | Balanced speed/accuracy |
 | `medium`, `medium.en` | Higher accuracy |
-| `large-v3` | Best accuracy, slowest |
-| `large-v3-turbo` | Good balance of speed and accuracy |
+| `large-v1`, `large-v2`, `large-v3` | Larger multilingual models |
+| `distil-large-v2`, `distil-large-v3` | Smaller/faster distilled variants |
 
 `.en` variants are English-only and slightly better for English content.
+`large-v3-turbo` is intentionally excluded from the downloader to keep one model source.
 
 To pre-download a model to the local `models/` directory:
 
 ```bash
-python models/download_model.py tiny
-python models/download_model.py large-v3-turbo
-python models/download_model.py --list
+python download_model.py tiny
+python download_model.py distil-large-v3
+python download_model.py --list
 ```
 
 ## Installation
@@ -55,11 +59,11 @@ Requires `ffmpeg` to be installed on your system.
 ## Usage - transcribes all files located in `input/`
 
 ```bash
-# Basic transcription (downloads 'tiny' model on first run)
+# Basic transcription (after downloading a model, e.g. tiny)
 python src/main.py
 
 # Use a larger model
-python src/main.py --model large-v3-turbo
+python src/main.py --model large-v3
 
 # Skip noise reduction
 python src/main.py --no-clean
@@ -88,6 +92,9 @@ Transcriptions are saved to `output/output.xml`.
 | `src/transcribe_tool.py` | add language_probability to result |
 
 ## Later implementation ideas
+
+- **Different STT Tool**
+  - Try out `https://huggingface.co/Qwen/Qwen3-ASR-1.7B` a model by alibaba
 
 - **Responsibility split**
   - Keep `src/logic.py` as static orchestration/core workflow only.
