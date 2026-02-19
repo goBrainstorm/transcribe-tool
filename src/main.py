@@ -105,6 +105,9 @@ def main() -> None:
     """Main entry point."""
     args = parse_args()
 
+
+    # TODO: inform user about the models and how to download them
+    # TODO: if no args are provided, print help
     if args.list_models:
         list_available_models()
         return
