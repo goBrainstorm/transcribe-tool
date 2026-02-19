@@ -186,7 +186,7 @@ class FileHandler:
         if language:
             transcription_elem.set("language", language)
         if model:
-            transcription_elem.set("model", model)
+            transcription_elem.set("model", model) # TODO: add full model name eg.: faster-whisper-tiny.en (maybe add function to get full model name)
         transcription_elem.text = f"\n{transcription.strip()}\n" if transcription else ""
 
         # 2. Translation element
@@ -268,7 +268,7 @@ class FileHandler:
             if language is not None:
                 trans_elem.set("language", language)
             if transcription_model is not None:
-                trans_elem.set("model", transcription_model)
+                trans_elem.set("model", transcription_model) # TODO: add full model name eg.: faster-whisper-tiny.en (maybe add function to get full model name)
 
         # Update Translation
         trans_l_elem = entry.find("translation")
@@ -279,7 +279,7 @@ class FileHandler:
         if trans_l_elem is not None and translation is not None:
             trans_l_elem.text = f"\n{translation.strip()}\n" if translation else ""
             if translation_model is not None:
-                trans_l_elem.set("model", translation_model)
+                trans_l_elem.set("model", translation_model) # TODO: add full model name eg.: faster-whisper-tiny.en (maybe add function to get full model name)
 
         # Update Extracted Information (Summary and Tags)
         extracted_info = entry.find("extracted_information")
