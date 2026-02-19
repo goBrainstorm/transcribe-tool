@@ -44,10 +44,9 @@ class Logic:
         file_handler: FileHandler,
         transcribe_tool: TranscribeTool,
         clean: bool = True,
-        language: str = "en", # TODO: is this correct?
+        language: str = "auto",
         save: bool = True,
         print_result: bool = False,
-        translator: Optional[TranslateTool] = None,
         debug: bool = False,
     ) -> dict:
         """Transcribe one file and optionally persist it to XML output."""
@@ -79,17 +78,11 @@ class Logic:
             if already_exists:
                 Logic.log("Skipping save: entry already exists in output.", debug)
             else:
-                translation = Logic.translate_text(
-                    text=result["text"], # TODO: what if text is empty?
-                    translator=translator,
-                    target_language=language,
-                    debug=debug,
-                )
                 saved = file_handler.add_entry(
                     transcription=result["text"],
                     model=transcribe_tool.transcriber.model_size,
                     language=result.get("language", language),
-                    translation=translation,
+                    translation=None,
                     filename=audio_path.name,
                 )
                 if saved:
@@ -115,14 +108,56 @@ class Logic:
         }
 
     @staticmethod
+    def translate_entries_to_english(
+        file_handler: FileHandler,
+        translator: Optional[TranslateTool],
+        debug: bool = False,
+    ) -> dict:
+        """Translate entries missing translations to English and persist updates."""
+        if translator is None:
+            return {"processed": 0, "translated": 0, "skipped": 0, "failed": 0}
+
+        entry_ids = file_handler.get_all_entries_without_translation()
+        if not entry_ids:
+            Logic.log("No entries require translation.", debug)
+            return {"processed": 0, "translated": 0, "skipped": 0, "failed": 0}
+
+        stats = {"processed": len(entry_ids), "translated": 0, "skipped": 0, "failed": 0}
+        for entry_id in entry_ids:
+            transcription = file_handler.get_transcription_from_entry_id(entry_id)
+            if not transcription:
+                stats["skipped"] += 1
+                continue
+
+            translation = Logic.translate_text(
+                text=transcription,
+                translator=translator,
+                target_language="en",
+                debug=debug,
+            )
+            if not translation:
+                stats["failed"] += 1
+                continue
+
+            updated = file_handler.update_entry(
+                entry_id=entry_id,
+                translation=translation,
+            )
+            if updated:
+                stats["translated"] += 1
+            else:
+                stats["failed"] += 1
+
+        return stats
+
+    @staticmethod
     def process_files_from_folder(
         file_handler: FileHandler,
         transcribe_tool: TranscribeTool,
         clean: bool = True,
-        language: str = "en", # TODO: is this correct?
+        language: str = "auto",
         save: bool = True,
         print_result: bool = False,
-        translator: Optional[TranslateTool] = None,
         debug: bool = False,
         skip_existing: bool = True,
     ) -> list[dict]:
@@ -150,7 +185,6 @@ class Logic:
                     language=language,
                     save=save,
                     print_result=print_result,
-                    translator=translator,
                     debug=debug,
                 )
             except Exception as exc:
@@ -166,7 +200,6 @@ class Logic:
 
             results.append(result)
 
-        # TODO: add translation summary
         print("\n" + "=" * 40)
         print("Transcription Summary:")
         print(f"Total files: {len(audio_files)}")

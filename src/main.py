@@ -10,7 +10,6 @@ from ollama_handler import OllamaHandler
 from transcribe_tool import TranscribeTool
 from translate import TranslateTool
 
-
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
@@ -35,7 +34,7 @@ def parse_args() -> argparse.Namespace:
         "--language",
         type=str,
         default="auto",
-        help="Language code for transcription. Default: auto",
+        help="Source language hint for transcription (ISO code). Default: auto",
     )
     parser.add_argument(
         "--no-clean",
@@ -46,11 +45,6 @@ def parse_args() -> argparse.Namespace:
         "--no-save",
         action="store_true",
         help="Don't save transcription to XML output.",
-    )
-    parser.add_argument(
-        "--no-translate",
-        action="store_true",
-        help="Disable translation step when saving entries.",
     )
     parser.add_argument(
         "--print-result",
@@ -88,11 +82,8 @@ def list_available_models() -> None:
         print("Run: python download_model.py tiny")
 
 
-def _build_translate_tool(disabled: bool = False) -> Optional[TranslateTool]:
+def _build_translate_tool() -> Optional[TranslateTool]:
     """Initialize translation dependencies once and return a shared tool."""
-    if disabled:
-        return None
-
     try:
         ollama_handler = OllamaHandler()
         return TranslateTool(ollama_handler=ollama_handler)
@@ -113,7 +104,7 @@ def main() -> None:
         return
 
     file_handler = FileHandler()
-    translator = _build_translate_tool(disabled=args.no_translate)
+    translator = _build_translate_tool()
 
     with TranscribeTool(model_size=args.model) as transcribe_tool:
         if args.audio_file:
@@ -125,14 +116,16 @@ def main() -> None:
                 language=args.language,
                 save=not args.no_save,
                 print_result=args.print_result,
+                debug=args.debug,
+            )
+            Logic.translate_entries_to_english(
+                file_handler=file_handler,
                 translator=translator,
                 debug=args.debug,
             )
             return
 
-        # TODO: translate files that have not been translated
         # TODO: test transcription for files that have not been transcripted
-        # TODO: bug: translates to german → should be english
         Logic.process_files_from_folder(
             file_handler=file_handler,
             transcribe_tool=transcribe_tool,
@@ -140,9 +133,13 @@ def main() -> None:
             language=args.language,
             save=not args.no_save,
             print_result=args.print_result,
-            translator=translator,
             debug=args.debug,
             skip_existing=True,
+        )
+        Logic.translate_entries_to_english(
+            file_handler=file_handler,
+            translator=translator,
+            debug=args.debug,
         )
 
 

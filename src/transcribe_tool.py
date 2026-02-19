@@ -257,7 +257,7 @@ class TranscribeTool:
         self,
         audio_path: Path,
         clean: bool = True,
-        language: str = "de",
+        language: str = "auto",
     ) -> dict:
         """
         Process an audio file through the full transcription pipeline.

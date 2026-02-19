@@ -27,7 +27,7 @@ class FileHandler:
         return f"ID-{hashlib.md5(transcription.encode()).hexdigest()[:8]}"
 
     
-    # TODO: buggy. Does not work with faster-whisper models.
+    # BUG: Does not work with faster-whisper models.
     @staticmethod
     def get_available_models() -> list:
         """
@@ -322,9 +322,11 @@ class FileHandler:
         Returns:
             str: The ID of the last entry, or None if no entries exist.
         """
-        
+        entries = self.get_all_entries()
+        if not entries:
+            return None
 
-        return self.get_all_entries()[-1].get("id") # TODO: test this
+        return entries[-1].get("id")
 
     def get_all_entries(self) -> list:
         """
@@ -353,8 +355,12 @@ class FileHandler:
         """
         if not self.OUTPUT_FILE_PATH.exists():
             return []
-        tree = ET.parse(self.OUTPUT_FILE_PATH)
-        root = tree.getroot()
+        try:
+            tree = ET.parse(self.OUTPUT_FILE_PATH)
+            root = tree.getroot()
+        except ET.ParseError:
+            print(f"Error: Failed to parse output file: {self.OUTPUT_FILE_PATH}")
+            return []
         
         print("\n"*2 + "Getting all entries without translation..." + "\n"*2)
         entries_without_translation = []
