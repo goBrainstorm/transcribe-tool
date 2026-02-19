@@ -72,7 +72,37 @@ python src/main.py --no-clean
 Transcriptions are saved to `output/output.xml`.
 
 ## TODOs
+### BUGS
+#### OLLAMA does not unload model after use
+I've used the program and qwen was still loaded in gpu. another instance of gpu was too much for my poor gpu.
+```bash
+ollama ps
+NAME        ID              SIZE      PROCESSOR    CONTEXT    UNTIL              
+qwen3:8b    500a1f067a9f    6.0 GB    100% GPU     4096       3 minutes from now   
+```
+got me this error:
+```
+python3 src/main.py --model large-v3
+Found 4 audio file(s) to process.
+clean_audio() took 0.30 s
+process() took 0.51 s
+Error processing Record-028.aac: CUDA failed with error out of memory
+process() took 0.19 s
+Error processing WhatsApp Audio 2026-02-12 at 12.15.30.ogg: CUDA out of memory. Tried to allocate 24.00 MiB. GPU 0 has a total capacity of 7.60 GiB of which 15.38 MiB is free. Process 3936 has 5.38 GiB memory in use. Including non-PyTorch memory, this process has 2.19 GiB memory in use. Of the allocated memory 217.80 MiB is allocated by PyTorch, and 50.20 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+process() took 0.13 s
+Error processing schwindelig.aac: CUDA out of memory. Tried to allocate 24.00 MiB. GPU 0 has a total capacity of 7.60 GiB of which 11.38 MiB is free. Process 3936 has 5.38 GiB memory in use. Including non-PyTorch memory, this process has 2.19 GiB memory in use. Of the allocated memory 217.60 MiB is allocated by PyTorch, and 54.40 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+process() took 0.17 s
+Error processing test-voice.m4a: CUDA out of memory. Tried to allocate 24.00 MiB. GPU 0 has a total capacity of 7.60 GiB of which 11.38 MiB is free. Process 3936 has 5.38 GiB memory in use. Including non-PyTorch memory, this process has 2.19 GiB memory in use. Of the allocated memory 224.63 MiB is allocated by PyTorch, and 47.37 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
 
+========================================
+Transcription Summary:
+Total files: 4
+Successful: 0
+Failed: 4
+========================================
+```
+
+### CODE MARKS
 | File | Message |
 |------|---------|
 | `src/logic.py` | what if text is empty? |
@@ -85,7 +115,7 @@ Transcriptions are saved to `output/output.xml`.
 | `src/transcribe_tool.py` | what happens to tmp file? eg: PosixPath('/tmp/transcribe_clean_5o9fl8al/test-voice_cleaned.wav') |
 | `src/transcribe_tool.py` | add language_probability to result |
 
-## Later implementation ideas
+### Later implementation ideas
 
 - **Different STT Tool**
   - Try out `https://huggingface.co/Qwen/Qwen3-ASR-1.7B` a model by alibaba
