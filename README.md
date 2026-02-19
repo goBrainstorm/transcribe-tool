@@ -85,8 +85,6 @@ Transcriptions are saved to `output/output.xml`.
 | `src/file_handling.py` | test this |
 | `src/file_handling.py` | why sort? |
 | `download_model.py` | what is this shit: Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads. |
-| `src/main.py` | translate files that have not been translated |
-| `src/main.py` | test transcription for files that have not been transcripted |
 | `src/transcribe_tool.py` | add more parameters (play around with them) |
 | `src/transcribe_tool.py` | what happens to tmp file? eg: PosixPath('/tmp/transcribe_clean_5o9fl8al/test-voice_cleaned.wav') |
 | `src/transcribe_tool.py` | add language_probability to result |
@@ -95,15 +93,6 @@ Transcriptions are saved to `output/output.xml`.
 
 - **Different STT Tool**
   - Try out `https://huggingface.co/Qwen/Qwen3-ASR-1.7B` a model by alibaba
-
-- **Responsibility split**
-  - Keep `src/logic.py` as static orchestration/core workflow only.
-  - Keep `src/file_handling.py` as the state holder for input audio file data and XML persistence.
-  - Keep `src/main.py` as the CLI entrypoint that parses args and wires dependencies.
-
-- **Single initialization for heavy tools**
-  - Initialize `TranscribeTool`, `TranslateTool`, and `OllamaHandler` once in `src/main.py`.
-  - Pass initialized instances into `Logic` functions to avoid repeated setup cost.
 
 - **File metadata model**
   - Introduce a typed file metadata object (for example, a dataclass) with path, name, extension, size, and status fields.
