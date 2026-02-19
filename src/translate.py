@@ -9,8 +9,6 @@ import sys
 import os
 import time
 
-# Ensure we can import from the same directory if run directly
-# This allows running 'python src/translate.py' from project root or src/
 if __name__ == "__main__":
     sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
@@ -19,10 +17,8 @@ try:
     from .ollama_handler import OllamaHandler
 except ImportError:
     try:
-        # Try direct import (for script usage within src)
         from ollama_handler import OllamaHandler
     except ImportError:
-        # Try import from src (for script usage from root)
         try:
             from src.ollama_handler import OllamaHandler
         except ImportError:
@@ -73,8 +69,6 @@ class TranslateTool:
             )
         else:
             # Check if model is available
-            # We use ensure_model which checks availability but doesn't pull automatically
-            # to avoid blocking without feedback
             if not self.handler.ensure_model(self.model_name):
                  print(
                     f"Warning: Model '{self.model_name}' not found. "
@@ -100,10 +94,6 @@ class TranslateTool:
         if not text:
             return ""
         start = time.perf_counter()
-
-        # Construct the prompt for translategemma
-        # Format: Translate from [source] to [target]: [text]
-        # If source is auto, we try to infer or use a generic prompt.
         
         if source_language == "auto":
             # For translategemma, explicit source is better, but let's try a direct request
@@ -117,10 +107,8 @@ class TranslateTool:
              prompt = f"Translate from {source_language} to {target_language}: {text}"
 
         try:
-            # TODO: Check token count and split if necessary
             return self.handler.generate(model=self.model_name, prompt=prompt)
         except Exception as e:
-            # Re-raise with context if needed, but handler already raises specific errors
             raise e
         finally:
             elapsed = time.perf_counter() - start

@@ -85,8 +85,7 @@ class OllamaHandler:
                 return result
             return []
         except Exception as e:
-            # If service is down, this will raise. We can return empty list or let it raise.
-            # For this helper, returning empty list is safer if just checking availability.
+            # service is down
             print(f"Warning: Could not list models: {e}")
             return []
 
@@ -102,15 +101,14 @@ class OllamaHandler:
         """
         try:
             models = self.list_models()
-            # Check for exact match or match before colon (e.g. "translategemma" matches "translategemma:latest")
-            # Also handle if user provided "translategemma:latest" but list has "translategemma"
             for m in models:
                 if m == model_name:
                     return True
                 if m.split(':')[0] == model_name.split(':')[0]:
                     return True
             return False
-        except Exception:
+        except Exception as e:
+            print(f"Warning: Could not ensure model: {e}")
             return False
 
     def generate(self, model: str, prompt: str, **kwargs) -> str:
@@ -131,8 +129,8 @@ class OllamaHandler:
         """
         start = time.perf_counter()
         try:
-            # We don't explicitly check is_running() here to save a round trip,
-            # trusting the client to raise an error if connection fails.
+            # TODO dublicate tokens for context length
+
             num_tokens = self.get_token_count(prompt)
             if num_tokens > (4096/2):
                 response = self.client.generate(model=model, prompt=prompt, options={"num_ctx": 8096})
