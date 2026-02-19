@@ -26,7 +26,7 @@ class Summary_Tool:
     def __init__(
         self, 
         ollama_handler: Optional[OllamaHandler] = None, 
-        summary_model_name: str = "qwen3:0.6b" # TODO: add model selection
+        summary_model_name: str = "qwen3:8b" # TODO: add model selection
     ):
         """Initialize the Summary instance."""
         self.model_name = summary_model_name
@@ -69,10 +69,18 @@ class Summary_Tool:
             return None
         start = time.perf_counter()
         
-        prompt = f"""Instruction: Summarize the following text. Maintain the original tone and style.
-        
-        Input Text: {text}
-                
+        prompt = f"""
+        Task: Summarize the text provided below.
+
+        Guidelines:
+            - Provide a concise, 2-3 sentence overview of the main topic.
+            - Extract the most important takeaways and list them as 3-5 bullet points.
+            - Maintain the original tone of the text.
+            - Ensure the summary is strictly based on the provided text without adding outside information.
+
+        Text to summarize: 
+        {text}
+
         Summary:
         """
         try:

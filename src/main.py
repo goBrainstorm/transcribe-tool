@@ -136,6 +136,7 @@ def main() -> None:
             )
             return
 
+        # TODO: args check
         # TODO: test transcription for files that have not been transcripted
         Logic.transcribe_files_from_folder(
             file_handler=file_handler,

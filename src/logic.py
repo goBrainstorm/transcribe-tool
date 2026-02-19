@@ -196,11 +196,15 @@ class Logic:
                 summarizer=summarizer,
                 debug=debug,
             )
-            if summary:
+            
+            updated = file_handler.update_entry(
+                entry_id=entry_id,
+                summary=summary,
+            )
+            if updated:
                 stats["summarized"] += 1
             else:
                 stats["failed"] += 1
-            return stats
         return stats
 
     @staticmethod
