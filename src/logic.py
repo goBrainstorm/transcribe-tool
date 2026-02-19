@@ -44,7 +44,7 @@ class Logic:
         file_handler: FileHandler,
         transcribe_tool: TranscribeTool,
         clean: bool = True,
-        language: str = "de",
+        language: str = "en",
         save: bool = True,
         print_result: bool = False,
         translator: Optional[TranslateTool] = None,
