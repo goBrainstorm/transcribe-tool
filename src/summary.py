@@ -1,7 +1,7 @@
 import sys
 import os
 import time
-from typing import Optional
+from typing import Dict, Optional
 
 try:
     # Try relative import first (for package usage)
