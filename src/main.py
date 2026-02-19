@@ -9,6 +9,7 @@ from logic import Logic
 from ollama_handler import OllamaHandler
 from transcribe_tool import TranscribeTool
 from translate import TranslateTool
+from summary import Summary_Tool
 
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
@@ -60,6 +61,16 @@ def parse_args() -> argparse.Namespace:
         "--list-models",
         action="store_true",
         help="List available whisper models.",
+    )
+    parser.add_argument(
+        "--translate",
+        action="store_true",
+        help="Translate the transcriptions.",
+    )
+    parser.add_argument(
+        "--summarize",
+        action="store_true",
+        help="Summarize the translations.",
     )
     return parser.parse_args()
 
@@ -118,7 +129,7 @@ def main() -> None:
                 print_result=args.print_result,
                 debug=args.debug,
             )
-            Logic.translate_entries_to_english(
+            Logic.translate_entries(
                 file_handler=file_handler,
                 translator=translator,
                 debug=args.debug,
@@ -126,7 +137,7 @@ def main() -> None:
             return
 
         # TODO: test transcription for files that have not been transcripted
-        Logic.process_files_from_folder(
+        Logic.transcribe_files_from_folder(
             file_handler=file_handler,
             transcribe_tool=transcribe_tool,
             clean=not args.no_clean,
@@ -136,11 +147,18 @@ def main() -> None:
             debug=args.debug,
             skip_existing=True,
         )
-        Logic.translate_entries_to_english(
+        Logic.translate_entries(
             file_handler=file_handler,
             translator=translator,
             debug=args.debug,
         )
+        summarizer = Summary_Tool()
+        Logic.summarize_entries_with_translation(
+            file_handler=file_handler,
+            summarizer=summarizer,
+            debug=args.debug,
+        )
+
 
 
 if __name__ == "__main__":

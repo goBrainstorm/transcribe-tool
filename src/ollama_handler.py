@@ -23,14 +23,6 @@ class OllamaHandler:
     Handles interactions with the Ollama service.
     """
 
-    # TODO: count faulty translations:
-    # ========================================
-    # Transcription Summary:
-    # Total files: 1
-    # Successful: 1
-    # Failed: 0
-    # ========================================
-
     def __init__(self, host: str = "http://localhost:11434"):
         """
         Initialize the Ollama handler.

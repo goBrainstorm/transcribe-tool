@@ -75,13 +75,9 @@ Transcriptions are saved to `output/output.xml`.
 
 | File | Message |
 |------|---------|
-| `src/translate.py` | Check token count and split if necessary |
 | `src/logic.py` | what if text is empty? |
-| `src/logic.py` | add translation summary |
-| `src/ollama_handler.py` | count faulty translations: |
 | `src/ollama_handler.py` | sooooo many returns that could be used...use em :( |
-| `src/file_handling.py` | buggy. Does not work with faster-whisper models. |
-| `src/file_handling.py` | not working ... make it work (valid_date) |
+| `src/file_handling.py` | get date from meta data or title (title is more reliable(valid_date)) |
 | `src/file_handling.py` | test this |
 | `src/file_handling.py` | why sort? |
 | `download_model.py` | what is this shit: Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads. |

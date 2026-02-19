@@ -4,6 +4,7 @@ from typing import Optional
 from file_handling import FileHandler
 from transcribe_tool import TranscribeTool
 from translate import TranslateTool
+from summary import Summary_Tool
 
 
 class Logic:
@@ -36,6 +37,23 @@ class Logic:
             return None
         except ValueError as exc:
             print(f"Warning: Translation skipped -- {exc}")
+            return None
+
+    @staticmethod
+    def summarize_text(
+        text: str,
+        summarizer: Optional[Summary_Tool],
+        debug: bool = False,
+    ) -> Optional[str]:
+        """Summarize text."""
+        if summarizer is None:
+            return None
+        if debug:
+            Logic.log(f"Summarizing text...", debug)
+        try:
+            return summarizer.summarize(text)
+        except Exception as exc:
+            print(f"Warning: Summarization skipped -- {exc}")
             return None
 
     @staticmethod
@@ -108,7 +126,7 @@ class Logic:
         }
 
     @staticmethod
-    def translate_entries_to_english(
+    def translate_entries(
         file_handler: FileHandler,
         translator: Optional[TranslateTool],
         debug: bool = False,
@@ -117,7 +135,7 @@ class Logic:
         if translator is None:
             return {"processed": 0, "translated": 0, "skipped": 0, "failed": 0}
 
-        entry_ids = file_handler.get_all_entries_without_translation()
+        entry_ids = file_handler.get_all_entry_ids_without_translation()
         if not entry_ids:
             Logic.log("No entries require translation.", debug)
             return {"processed": 0, "translated": 0, "skipped": 0, "failed": 0}
@@ -151,7 +169,42 @@ class Logic:
         return stats
 
     @staticmethod
-    def process_files_from_folder(
+    def summarize_entries_with_translation(
+        file_handler: FileHandler,
+        summarizer: Optional[Summary_Tool],
+        debug: bool = False,
+    ) -> dict:
+        """Summarize translations."""
+        if summarizer is None:
+            print("Warning: Summary tool not found. Skipping summarization.")
+            return {"processed": 0, "summarized": 0, "skipped": 0, "failed": 0}
+
+        entry_ids = file_handler.get_all_entry_ids_with_translation()
+        if not entry_ids:
+            Logic.log("No entries require summarization.", debug)
+            return {"processed": 0, "summarized": 0, "skipped": 0, "failed": 0}
+
+        stats = {"processed": len(entry_ids), "summarized": 0, "skipped": 0, "failed": 0}
+        for entry_id in entry_ids:
+            translation = file_handler.get_content_from_entry_id(entry_id, "translation")
+            if not translation:
+                stats["skipped"] += 1
+                continue
+
+            summary = Logic.summarize_text(
+                text=translation,
+                summarizer=summarizer,
+                debug=debug,
+            )
+            if summary:
+                stats["summarized"] += 1
+            else:
+                stats["failed"] += 1
+            return stats
+        return stats
+
+    @staticmethod
+    def transcribe_files_from_folder(
         file_handler: FileHandler,
         transcribe_tool: TranscribeTool,
         clean: bool = True,

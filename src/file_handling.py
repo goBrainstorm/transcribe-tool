@@ -92,6 +92,7 @@ class FileHandler:
         except ET.ParseError:
             return None
 
+    # TODO: remove this function and replace with get_content_from_entry_id
     def get_transcription_from_entry_id(self, entry_id: str) -> str:
         """
         Get the transcription content from an entry by its ID.
@@ -111,6 +112,19 @@ class FileHandler:
             return None
         
         return transcription_elem.text.strip()
+
+    def get_content_from_entry_id(self, entry_id: str, content_type: str) -> str:
+        """
+        Get the content from an entry by its ID.
+        
+        Args:
+            entry_id: The ID of the entry to retrieve content from.
+            content_type: The type of content to retrieve.
+        """
+        entry = self.get_entry(entry_id)
+        if entry is None:
+            return None
+        return self.get_entry(entry_id).find(content_type).text.strip()
 
     def add_entry(
         self,
@@ -140,7 +154,7 @@ class FileHandler:
         Raises:
             ValueError: If date is invalid and transcription is empty.
         """
-        def valid_date(date_str: str) -> bool: # TODO not working ... make it work
+        def valid_date(date_str: str) -> bool: # TODO get date from meta data or title (title is more reliable)
             """Check if date string is a valid ISO format datetime."""
             if date_str is None:
                 return False
@@ -346,7 +360,7 @@ class FileHandler:
             print(f"Error: Failed to parse output file: {self.OUTPUT_FILE_PATH}")
             return []
 
-    def get_all_entries_without_translation(self) -> list:
+    def get_all_entry_ids_without_translation(self) -> list:
         """
         Get all entries without a translation.
         
@@ -362,7 +376,7 @@ class FileHandler:
             print(f"Error: Failed to parse output file: {self.OUTPUT_FILE_PATH}")
             return []
         
-        print("\n"*2 + "Getting all entries without translation..." + "\n"*2)
+        print("\n"*2 + "Getting all entries without translation..." + "\n"*2) # TODO: different when none found
         entries_without_translation = []
         for entry in root.findall("entry"):
             translation_elem = entry.find("translation")
@@ -372,6 +386,33 @@ class FileHandler:
         
         return entries_without_translation
     
+    def get_all_entry_ids_with_translation(self, debug: bool = False) -> list:
+        """
+        Get all entries without a translation.
+        
+        Returns:
+            list: List of entry elements that have no translation or empty translation text.
+        """
+        if not self.OUTPUT_FILE_PATH.exists():
+            return []
+        try:
+            tree = ET.parse(self.OUTPUT_FILE_PATH)
+            root = tree.getroot()
+        except ET.ParseError:
+            print(f"Error: Failed to parse output file: {self.OUTPUT_FILE_PATH}")
+            return []
+        
+        if debug:
+            print("\n"*2 + "Getting all entries with translation..." + "\n"*2)
+        entries_with_translation = []
+        for entry in root.findall("entry"):
+            translation_elem = entry.find("translation")
+            # Check if translation element doesn't exist or has no text or only whitespace
+            if translation_elem is not None and translation_elem.text is not None and translation_elem.text.strip() != "":
+                entries_with_translation.append(entry.get("id"))
+        
+        return entries_with_translation
+
     def get_transcribed_filenames(self) -> set[str]:
         """
         Get all filenames that have already been transcribed.

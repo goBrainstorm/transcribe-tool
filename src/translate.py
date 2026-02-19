@@ -139,32 +139,3 @@ class TranslateTool:
             List of model names.
         """
         return self.handler.list_models()
-
-
-if __name__ == "__main__":
-    # Example usage
-    try:
-        print("Initializing TranslateTool...")
-        tool = TranslateTool()
-        
-        health = tool.check_health()
-        print(f"Health check: {health}")
-        
-        if health["ollama_running"] and health["model_available"]:
-            text = "Hello, how are you today?"
-            target = "en"
-            print(f"Translating '{text}' to {target}...")
-            result = tool.translate(text, target)
-            print(f"Result: {result}")
-        else:
-            print("Skipping translation check because service or model is unavailable.")
-            if not health["ollama_running"]:
-                print("Run 'ollama serve' to start the service.")
-            if not health["model_available"]:
-                print(f"Run 'ollama pull {tool.model_name}' to download the model.")
-                
-    except ImportError as e:
-        print(f"ImportError: {e}")
-        print("Please ensure requirements are installed: pip install -r requirements.txt")
-    except Exception as e:
-        print(f"Error: {e}")
