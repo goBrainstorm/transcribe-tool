@@ -34,8 +34,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--language",
         type=str,
-        default="de",
-        help="Language code for transcription. Default: de",
+        default="auto",
+        help="Language code for transcription. Default: auto",
     )
     parser.add_argument(
         "--no-clean",
@@ -132,6 +132,7 @@ def main() -> None:
 
         # TODO: translate files that have not been translated
         # TODO: test transcription for files that have not been transcripted
+        # TODO: bug: translates to german → should be english
         Logic.process_files_from_folder(
             file_handler=file_handler,
             transcribe_tool=transcribe_tool,

@@ -152,7 +152,7 @@ if __name__ == "__main__":
         
         if health["ollama_running"] and health["model_available"]:
             text = "Hello, how are you today?"
-            target = "de"
+            target = "en"
             print(f"Translating '{text}' to {target}...")
             result = tool.translate(text, target)
             print(f"Result: {result}")

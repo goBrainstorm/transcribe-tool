@@ -44,7 +44,7 @@ class Logic:
         file_handler: FileHandler,
         transcribe_tool: TranscribeTool,
         clean: bool = True,
-        language: str = "en",
+        language: str = "en", # TODO: is this correct?
         save: bool = True,
         print_result: bool = False,
         translator: Optional[TranslateTool] = None,
@@ -119,7 +119,7 @@ class Logic:
         file_handler: FileHandler,
         transcribe_tool: TranscribeTool,
         clean: bool = True,
-        language: str = "de",
+        language: str = "en", # TODO: is this correct?
         save: bool = True,
         print_result: bool = False,
         translator: Optional[TranslateTool] = None,

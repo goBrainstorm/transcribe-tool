@@ -175,7 +175,7 @@ class Transcriber:
             f"Download it first with: python download_model.py {model_size}"
         )
 
-    def transcribe(self, audio_path: Path, language: str = "en") -> dict:
+    def transcribe(self, audio_path: Path, language: str = "auto") -> dict:
         """
         Transcribe an audio file.
 
@@ -197,6 +197,8 @@ class Transcriber:
         if not audio_path.exists():
             raise FileNotFoundError(f"Audio file not found: {audio_path}")
 
+        if language == "auto":
+            language = None
         # Transcribe using faster-whisper TODO: add more parameters (play around with them)
         segments_generator, info = self.model.transcribe(
             str(audio_path),
