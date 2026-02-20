@@ -3,8 +3,7 @@ from typing import Optional
 
 from file_handling import FileHandler
 from transcribe_tool import TranscribeTool
-from translate import TranslateTool
-from summary import Summary_Tool
+from LLM_handler import LLMHandler
 
 
 class Logic:
@@ -19,19 +18,19 @@ class Logic:
     @staticmethod
     def translate_text(
         text: str,
-        translator: Optional[TranslateTool],
+        LLM_handler: Optional[LLMHandler],
         target_language: str = "en",
         debug: bool = False,
     ) -> Optional[str]:
         """Translate text."""
-        if translator is None:
+        if LLM_handler is None:
             return None
 
         if debug:
             Logic.log(f"Translating text to {target_language}...", debug)
 
         try:
-            return translator.translate(text, target_language=target_language)
+            return LLM_handler.translate(text, target_language=target_language)
         except ConnectionError:
             print("Warning: Translation skipped -- Ollama is not reachable.")
             return None
@@ -42,16 +41,16 @@ class Logic:
     @staticmethod
     def summarize_text(
         text: str,
-        summarizer: Optional[Summary_Tool],
+        LLM_handler: Optional[LLMHandler],
         debug: bool = False,
     ) -> Optional[str]:
         """Summarize text."""
-        if summarizer is None:
+        if LLM_handler is None:
             return None
         if debug:
             Logic.log(f"Summarizing text...", debug)
         try:
-            return summarizer.summarize(text)
+            return LLM_handler.summarize(text)
         except Exception as exc:
             print(f"Warning: Summarization skipped -- {exc}")
             return None
@@ -128,11 +127,11 @@ class Logic:
     @staticmethod
     def translate_entries(
         file_handler: FileHandler,
-        translator: Optional[TranslateTool],
+        LLM_handler: Optional[LLMHandler],
         debug: bool = False,
     ) -> dict:
         """Translate entries missing translations to English and persist updates."""
-        if translator is None:
+        if LLM_handler is None:
             return {"processed": 0, "translated": 0, "skipped": 0, "failed": 0}
 
         entry_ids = file_handler.get_all_entry_ids_without_translation()
@@ -149,7 +148,7 @@ class Logic:
 
             translation = Logic.translate_text(
                 text=transcription,
-                translator=translator,
+                LLM_handler=LLM_handler,
                 target_language="en",
                 debug=debug,
             )
@@ -171,11 +170,11 @@ class Logic:
     @staticmethod
     def summarize_entries_with_translation(
         file_handler: FileHandler,
-        summarizer: Optional[Summary_Tool],
+        LLM_handler: Optional[LLMHandler],
         debug: bool = False,
     ) -> dict:
         """Summarize translations."""
-        if summarizer is None:
+        if LLM_handler is None:
             print("Warning: Summary tool not found. Skipping summarization.")
             return {"processed": 0, "summarized": 0, "skipped": 0, "failed": 0}
 
@@ -193,7 +192,7 @@ class Logic:
 
             summary = Logic.summarize_text(
                 text=translation,
-                summarizer=summarizer,
+                LLM_handler=LLM_handler,
                 debug=debug,
             )
             

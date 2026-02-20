@@ -8,8 +8,7 @@ from file_handling import FileHandler
 from logic import Logic
 from ollama_handler import OllamaHandler
 from transcribe_tool import TranscribeTool
-from translate import TranslateTool
-from summary import Summary_Tool
+from LLM_handler import LLMHandler
 
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
@@ -93,11 +92,11 @@ def list_available_models() -> None:
         print("Run: python download_model.py tiny")
 
 
-def _build_translate_tool() -> Optional[TranslateTool]:
+def _build_LLM_handler() -> Optional[LLMHandler]:
     """Initialize translation dependencies once and return a shared tool."""
     try:
         ollama_handler = OllamaHandler()
-        return TranslateTool(ollama_handler=ollama_handler)
+        return LLMHandler(ollama_handler=ollama_handler)
     except Exception as exc:
         print(f"Warning: Translation disabled ({exc})")
         return None
@@ -115,7 +114,7 @@ def main() -> None:
         return
 
     file_handler = FileHandler()
-    translator = _build_translate_tool()
+    LLM_handler = _build_LLM_handler()
 
     with TranscribeTool(model_size=args.model) as transcribe_tool:
         if args.audio_file:
@@ -131,7 +130,7 @@ def main() -> None:
             )
             Logic.translate_entries(
                 file_handler=file_handler,
-                translator=translator,
+                LLM_handler=LLM_handler,
                 debug=args.debug,
             )
             return
@@ -150,13 +149,12 @@ def main() -> None:
         )
         Logic.translate_entries(
             file_handler=file_handler,
-            translator=translator,
+            LLM_handler=LLM_handler,
             debug=args.debug,
         )
-        summarizer = Summary_Tool()
         Logic.summarize_entries_with_translation(
             file_handler=file_handler,
-            summarizer=summarizer,
+            LLM_handler=LLM_handler,
             debug=args.debug,
         )
 

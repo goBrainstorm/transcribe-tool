@@ -23,7 +23,7 @@ class OllamaHandler:
     Handles interactions with the Ollama service.
     """
 
-    def __init__(self, host: str = "http://localhost:11434"):
+    def __init__(self, host: str = "http://localhost:11434"): # TODO: add default host from config.json
         """
         Initialize the Ollama handler.
 
