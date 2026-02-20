@@ -152,11 +152,13 @@ def main() -> None:
             LLM_handler=LLM_handler,
             debug=args.debug,
         )
+        # TODO unload translate model
         Logic.summarize_entries_with_translation(
             file_handler=file_handler,
             LLM_handler=LLM_handler,
             debug=args.debug,
         )
+        # TODO unload summary model
 
 
 

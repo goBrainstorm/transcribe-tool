@@ -74,5 +74,8 @@ class LLMHandler:
         prompt = prompt.format(text=text, target_language=target_language)
         return self.handler.generate(model=self.translate_model_name, prompt=prompt)['response']
 
-    def summarize(self, text: str, prompt: str = summary_prompt) -> str:
+    def summarize(self, text: str, prompt: Optional[str] = None) -> str:
+        if prompt is None:
+            prompt = self.summary_prompt
+        prompt = prompt.format(text=text)
         return self.handler.generate(model=self.summary_model_name, prompt=prompt)['response']
