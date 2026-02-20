@@ -139,3 +139,42 @@ class TranslateTool:
             List of model names.
         """
         return self.handler.list_models()
+
+class LLMHandler:
+    """
+    Handler for LLM models.
+    """
+
+    translate_model_name = "translategemma:4b"
+    summary_model_name = "qwen3:8b"
+
+    translate_prompt = """
+    Translate the text provided below into english. Maintain the original tone and style.
+    
+    Input Text: {text}
+    
+    Translation:
+    """
+
+    summary_prompt = """
+    Summarize the text provided below.
+    
+    Text to summarize: {text}
+    
+    Summary:
+    """
+
+    def __init__(self):
+        self.handler = OllamaHandler()
+        self.translate_model = self.handler.ensure_model(self.translate_model_name)
+        self.summary_model = self.handler.ensure_model(self.summary_model_name)
+
+        # TODO: add error handling
+        if not self.translate_model or not self.summary_model:
+            raise ValueError("Failed to load models")
+
+    def translate(self, text: str, prompt: str = translate_prompt) -> str:
+        return self.handler.generate(model=self.translate_model_name, prompt=prompt)['response']
+
+    def summarize(self, text: str, prompt: str = summary_prompt) -> str:
+        return self.handler.generate(model=self.summary_model_name, prompt=prompt)['response']

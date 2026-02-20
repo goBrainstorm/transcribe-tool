@@ -103,7 +103,7 @@ class OllamaHandler:
             print(f"Warning: Could not ensure model: {e}")
             return False
 
-    def generate(self, model: str, prompt: str, **kwargs) -> str:
+    def generate(self, model: str, prompt: str, **kwargs) -> Dict[str, Any]:
         """
         Generate text using the specified model.
 
@@ -113,22 +113,28 @@ class OllamaHandler:
             **kwargs: Additional arguments for the generate method.
 
         Returns:
-            The generated text.
-        
+            A dictionary with:
+                - 'response': The generated text,
+                - 'elapsed': Time in seconds for generation,
+                - 'tokens': Input prompt token count
         Raises:
             ConnectionError: If Ollama is not reachable.
             ValueError: If the model is not found or other error occurs.
         """
         start = time.perf_counter()
+        num_tokens = self.get_token_count(prompt)
         try:
             # TODO dublicate tokens for context length
-
-            num_tokens = self.get_token_count(prompt)
             if num_tokens > (4096/2):
                 response = self.client.generate(model=model, prompt=prompt, options={"num_ctx": 8096})
             else:
                 response = self.client.generate(model=model, prompt=prompt)
-            return response['response'] # TODO: sooooo many returns that could be used...use em :(
+            output_text = response['response']
+            return {
+                'response': output_text,
+                'elapsed': time.perf_counter() - start,
+                'tokens': num_tokens
+            }
         except Exception as e:
             str_e = str(e).lower()
             if "connection refused" in str_e or "newconnectionerror" in str_e or "failed to connect" in str_e:
@@ -142,9 +148,6 @@ class OllamaHandler:
                     f"Please pull it using: ollama pull {model}"
                 ) from e
             raise e
-        finally:
-            elapsed = time.perf_counter() - start
-            print(f"generate() took {elapsed:.2f} s")
 
     def get_token_count(self, text: str, encoding_name: str = "cl100k_base") -> int:
         """Return token count for text (for context length checks)."""
@@ -153,9 +156,6 @@ class OllamaHandler:
                 "The 'tiktoken' library is not installed. "
                 "Please install it with: pip install tiktoken"
             )
-        start = time.perf_counter()
         encoding = tiktoken.get_encoding(encoding_name)
         token_count = len(encoding.encode(text))
-        elapsed = time.perf_counter() - start
-        print(f"get_token_count() took {elapsed:.2f} s")
         return token_count
