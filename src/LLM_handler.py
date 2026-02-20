@@ -47,7 +47,7 @@ class LLMHandler:
     Translate the text provided below into english. Maintain the original tone and style.
     
     Input Text: {text}
-    
+
     Translation:
     """
 
@@ -68,7 +68,10 @@ class LLMHandler:
         if not self.translate_model or not self.summary_model:
             raise ValueError("Failed to load models")
 
-    def translate(self, text: str, prompt: str = translate_prompt) -> str:
+    def translate(self, text: str, target_language: str = "en", prompt: Optional[str] = None) -> str:
+        if prompt is None:
+            prompt = self.translate_prompt
+        prompt = prompt.format(text=text, target_language=target_language)
         return self.handler.generate(model=self.translate_model_name, prompt=prompt)['response']
 
     def summarize(self, text: str, prompt: str = summary_prompt) -> str:

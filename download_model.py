@@ -9,6 +9,9 @@ Usage:
     python download_model.py distil-large-v3 --force
 """
 
+# TODO: what is this shit: Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+
 import argparse
 import shutil
 import sys

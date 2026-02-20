@@ -16,6 +16,7 @@ import time
 import numpy as np
 import torch
 from audio_denoiser.AudioDenoiser import AudioDenoiser
+from audio_denoiser.modules.AudioNoiseModel import AudioNoiseModel
 from faster_whisper import WhisperModel
 
 from file_handling import FileHandler
@@ -87,7 +88,18 @@ class AudioCleaner:
         # Initialize the audio denoiser model
         # Uses GPU if available, otherwise CPU
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.denoiser = AudioDenoiser(device=self.device)
+        # Prefer local cache so the app works offline when the model was already downloaded
+        _original = AudioNoiseModel.from_pretrained
+        def _from_pretrained_offline_ok(*args, **kwargs):
+            try:
+                return _original(*args, **kwargs, local_files_only=True)
+            except Exception:
+                return _original(*args, **kwargs)
+        AudioNoiseModel.from_pretrained = _from_pretrained_offline_ok
+        try:
+            self.denoiser = AudioDenoiser(device=self.device)
+        finally:
+            AudioNoiseModel.from_pretrained = _original
 
     def clean_audio(self, input_path: Path) -> Path:
         """

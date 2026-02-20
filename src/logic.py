@@ -136,11 +136,14 @@ class Logic:
 
         entry_ids = file_handler.get_all_entry_ids_without_translation()
         if not entry_ids:
-            Logic.log("No entries require translation.", debug)
+            print("No entries require translation.")
             return {"processed": 0, "translated": 0, "skipped": 0, "failed": 0}
 
+        n = len(entry_ids)
+        print(f"Translating {n} entr{'y' if n == 1 else 'ies'}...")
         stats = {"processed": len(entry_ids), "translated": 0, "skipped": 0, "failed": 0}
-        for entry_id in entry_ids:
+        for i, entry_id in enumerate(entry_ids, 1):
+            print(f"  Entry {i}/{n} (id={entry_id})...")
             transcription = file_handler.get_transcription_from_entry_id(entry_id)
             if not transcription:
                 stats["skipped"] += 1
@@ -165,6 +168,7 @@ class Logic:
             else:
                 stats["failed"] += 1
 
+        print(f"Translation done: {stats['translated']} translated, {stats['failed']} failed.")
         return stats
 
     @staticmethod
@@ -178,13 +182,16 @@ class Logic:
             print("Warning: Summary tool not found. Skipping summarization.")
             return {"processed": 0, "summarized": 0, "skipped": 0, "failed": 0}
 
-        entry_ids = file_handler.get_all_entry_ids_with_translation()
+        entry_ids = file_handler.get_all_entry_ids_with_translation(debug=debug)
         if not entry_ids:
-            Logic.log("No entries require summarization.", debug)
+            print("No entries require summarization.")
             return {"processed": 0, "summarized": 0, "skipped": 0, "failed": 0}
 
+        n = len(entry_ids)
+        print(f"Summarizing {n} entr{'y' if n == 1 else 'ies'}...")
         stats = {"processed": len(entry_ids), "summarized": 0, "skipped": 0, "failed": 0}
-        for entry_id in entry_ids:
+        for i, entry_id in enumerate(entry_ids, 1):
+            print(f"  Entry {i}/{n} (id={entry_id})...")
             translation = file_handler.get_content_from_entry_id(entry_id, "translation")
             if not translation:
                 stats["skipped"] += 1
@@ -204,6 +211,8 @@ class Logic:
                 stats["summarized"] += 1
             else:
                 stats["failed"] += 1
+
+        print(f"Summarization done: {stats['summarized']} summarized, {stats['failed']} failed.")
         return stats
 
     @staticmethod

@@ -95,10 +95,10 @@ def list_available_models() -> None:
 def _build_LLM_handler() -> Optional[LLMHandler]:
     """Initialize translation dependencies once and return a shared tool."""
     try:
-        ollama_handler = OllamaHandler()
-        return LLMHandler(ollama_handler=ollama_handler)
+        # ollama_handler = OllamaHandler()
+        return LLMHandler()
     except Exception as exc:
-        print(f"Warning: Translation disabled ({exc})")
+        print(f"Warning: ({exc})")
         return None
 
 
