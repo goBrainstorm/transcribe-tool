@@ -5,6 +5,8 @@ Ollama handler for managing connections and interactions with the Ollama service
 from typing import List, Dict, Any, Optional
 import time
 
+from app_logging import get_logger
+
 try:
     import tiktoken  # type: ignore[import-untyped]
 except ImportError:
@@ -17,13 +19,15 @@ except ImportError:
     ollama = None
     Client = None
 
+logger = get_logger(__name__)
+
 
 class OllamaHandler:
     """
     Handles interactions with the Ollama service.
     """
 
-    def __init__(self, host: str = "http://localhost:11434"):
+    def __init__(self, host: str = "http://localhost:11434"):  # TODO: Read default host from centralized settings.
         """
         Initialize the Ollama handler.
 
@@ -77,9 +81,8 @@ class OllamaHandler:
                 return result
             return []
         except Exception as e:
-            # If service is down, this will raise. We can return empty list or let it raise.
-            # For this helper, returning empty list is safer if just checking availability.
-            print(f"Warning: Could not list models: {e}")
+            # service is down
+            logger.warning("Could not list models: %s", e)
             return []
 
     def ensure_model(self, model_name: str) -> bool:
@@ -94,18 +97,18 @@ class OllamaHandler:
         """
         try:
             models = self.list_models()
-            # Check for exact match or match before colon (e.g. "translategemma" matches "translategemma:latest")
-            # Also handle if user provided "translategemma:latest" but list has "translategemma"
             for m in models:
                 if m == model_name:
                     return True
+                # FIXME(uncertain): Base-name matching may produce false positives for missing tags.
                 if m.split(':')[0] == model_name.split(':')[0]:
                     return True
             return False
-        except Exception:
+        except Exception as e:
+            logger.warning("Could not ensure model: %s", e)
             return False
 
-    def generate(self, model: str, prompt: str, **kwargs) -> str:
+    def generate(self, model: str, prompt: str, **kwargs) -> Dict[str, Any]:
         """
         Generate text using the specified model.
 
@@ -115,22 +118,41 @@ class OllamaHandler:
             **kwargs: Additional arguments for the generate method.
 
         Returns:
-            The generated text.
-        
+            A dictionary with:
+                - 'response': The generated text,
+                - 'elapsed': Time in seconds for generation,
+                - 'tokens': Input prompt token count
         Raises:
             ConnectionError: If Ollama is not reachable.
             ValueError: If the model is not found or other error occurs.
         """
         start = time.perf_counter()
+        num_tokens: Optional[int] = None
         try:
-            # We don't explicitly check is_running() here to save a round trip,
-            # trusting the client to raise an error if connection fails.
             num_tokens = self.get_token_count(prompt)
-            if num_tokens > (4096/2):
-                response = self.client.generate(model=model, prompt=prompt, options={"num_ctx": 8096})
-            else:
-                response = self.client.generate(model=model, prompt=prompt)
-            return response['response']
+        except Exception:
+            # Token counting is optional and should never block generation.
+            num_tokens = None
+
+        try:
+            # TODO: Revisit context sizing strategy for long prompts.
+            generate_kwargs = dict(kwargs)
+            if num_tokens is not None and num_tokens > (4096 / 2):
+                options = generate_kwargs.get("options")
+                if isinstance(options, dict):
+                    options = dict(options)
+                    options.setdefault("num_ctx", 8096)
+                    generate_kwargs["options"] = options
+                elif options is None:
+                    generate_kwargs["options"] = {"num_ctx": 8096}
+
+            response = self.client.generate(model=model, prompt=prompt, **generate_kwargs)
+            output_text = response['response']
+            return {
+                'response': output_text,
+                'elapsed': time.perf_counter() - start,
+                'tokens': num_tokens
+            }
         except Exception as e:
             str_e = str(e).lower()
             if "connection refused" in str_e or "newconnectionerror" in str_e or "failed to connect" in str_e:
@@ -143,10 +165,7 @@ class OllamaHandler:
                     f"Model '{model}' not found. "
                     f"Please pull it using: ollama pull {model}"
                 ) from e
-            raise e
-        finally:
-            elapsed = time.perf_counter() - start
-            print(f"generate() took {elapsed:.2f} s")
+            raise
 
     def get_token_count(self, text: str, encoding_name: str = "cl100k_base") -> int:
         """Return token count for text (for context length checks)."""
@@ -155,9 +174,6 @@ class OllamaHandler:
                 "The 'tiktoken' library is not installed. "
                 "Please install it with: pip install tiktoken"
             )
-        start = time.perf_counter()
         encoding = tiktoken.get_encoding(encoding_name)
         token_count = len(encoding.encode(text))
-        elapsed = time.perf_counter() - start
-        print(f"get_token_count() took {elapsed:.2f} s")
         return token_count

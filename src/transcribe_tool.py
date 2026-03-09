@@ -13,12 +13,16 @@ import subprocess
 import os
 import time
 
+from app_logging import get_logger
 import numpy as np
 import torch
 from audio_denoiser.AudioDenoiser import AudioDenoiser
+from audio_denoiser.modules.AudioNoiseModel import AudioNoiseModel
 from faster_whisper import WhisperModel
 
 from file_handling import FileHandler
+
+logger = get_logger(__name__)
 
 
 def load_audio_with_ffmpeg(input_path: Path, sample_rate: int = 16000) -> tuple[torch.Tensor, int]:
@@ -87,7 +91,19 @@ class AudioCleaner:
         # Initialize the audio denoiser model
         # Uses GPU if available, otherwise CPU
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.denoiser = AudioDenoiser(device=self.device)
+        # Prefer local cache so the app works offline when the model was already downloaded
+        # FIXME(uncertain): This monkey patch is process-global and may affect concurrent users.
+        _original = AudioNoiseModel.from_pretrained
+        def _from_pretrained_offline_ok(*args, **kwargs):
+            try:
+                return _original(*args, **kwargs, local_files_only=True)
+            except Exception:
+                return _original(*args, **kwargs)
+        AudioNoiseModel.from_pretrained = _from_pretrained_offline_ok
+        try:
+            self.denoiser = AudioDenoiser(device=self.device)
+        finally:
+            AudioNoiseModel.from_pretrained = _original
 
     def clean_audio(self, input_path: Path) -> Path:
         """
@@ -131,7 +147,7 @@ class AudioCleaner:
         audio_int16 = (audio_np * 32767).astype(np.int16)
         wavfile.write(str(output_path), sample_rate, audio_int16)
         elapsed = time.perf_counter() - start
-        print(f"clean_audio() took {elapsed:.2f} s")
+        logger.debug("clean_audio() took %.2f s", elapsed)
         return output_path
 
     def cleanup(self):
@@ -151,27 +167,31 @@ class Transcriber:
 
         Args:
             model_size: Whisper model size string (e.g., "tiny", "base", "small",
-                       "medium", "large-v3", "large-v3-turbo") or path to a
+                       "medium", "large-v3", "distil-large-v3") or path to a
                        local CTranslate2 model directory.
-            models_dir: Directory for caching downloaded models.
+            models_dir: Directory containing locally downloaded models.
                        If None, uses the default "models/" directory.
         """
         self.models_dir = models_dir or self.DEFAULT_MODELS_DIR
         self.model_size = model_size
-        
-        # Set Hugging Face cache to use our models directory
-        # This ensures models are loaded from our local folder
-        os.environ["HF_HOME"] = str(self.models_dir.absolute())
-        os.environ["HF_HUB_CACHE"] = str(self.models_dir.absolute() / "hub")
-        
-        self.model = WhisperModel(
-            model_size,
-            device="auto",
-            compute_type="int8",
-            download_root=str(self.models_dir)
+
+        model_path = self.models_dir / model_size
+        if model_path.is_dir() and (model_path / "model.bin").exists():
+            # Prefer explicit local model folders to avoid HF cache artifacts in models/.
+            self.model = WhisperModel(
+                str(model_path),
+                device="auto",
+                compute_type="int8",
+                local_files_only=True,
+            )
+            return
+
+        raise FileNotFoundError(
+            f"Model '{model_size}' not found in '{self.models_dir}'. "
+            f"Download it first with: python download_model.py {model_size}"
         )
 
-    def transcribe(self, audio_path: Path, language: str = "en") -> dict:
+    def transcribe(self, audio_path: Path, language: str = "auto") -> dict:
         """
         Transcribe an audio file.
 
@@ -193,7 +213,9 @@ class Transcriber:
         if not audio_path.exists():
             raise FileNotFoundError(f"Audio file not found: {audio_path}")
 
-        # Transcribe using faster-whisper
+        if language == "auto":
+            language = None
+        # TODO: Evaluate additional faster-whisper parameters for quality/performance.
         segments_generator, info = self.model.transcribe(
             str(audio_path),
             language=language,
@@ -245,13 +267,12 @@ class TranscribeTool:
         """
         self.cleaner = AudioCleaner(output_dir=temp_dir)
         self.transcriber = Transcriber(model_size=model_size, models_dir=models_dir)
-        self.file_handler = FileHandler()
 
     def process(
         self,
         audio_path: Path,
         clean: bool = True,
-        language: str = "de",
+        language: str = "auto",
     ) -> dict:
         """
         Process an audio file through the full transcription pipeline.
@@ -283,9 +304,10 @@ class TranscribeTool:
             # Step 1: Clean audio if requested and under threshold
             if clean and file_size_bytes > max_denoise_bytes:
                 clean = False
-                print(
-                    f"Skipping denoiser: file is {file_size_bytes / (1024 * 1024):.1f} MB "
-                    f"(limit {max_denoise_mb} MB)."
+                logger.info(
+                    "Skipping denoiser: file is %.1f MB (limit %s MB).",
+                    file_size_bytes / (1024 * 1024),
+                    max_denoise_mb,
                 )
 
             if clean:
@@ -296,19 +318,22 @@ class TranscribeTool:
                 transcribe_path = audio_path
 
             # Step 2: Transcribe
+            # TODO: Evaluate whether cleaned files should be persisted for debugging sessions.
             transcription = self.transcriber.transcribe(transcribe_path, language=language)
             result["text"] = transcription["text"]
             result["segments"] = transcription["segments"]
             result["language"] = transcription["language"]
+            # TODO: Add language_probability to the public process result.
 
             return result
         finally:
             elapsed = time.perf_counter() - start
-            print(f"process() took {elapsed:.2f} s")
+            logger.debug("process() took %.2f s", elapsed)
 
-    def get_available_models(self) -> list:
+    @staticmethod
+    def get_available_models() -> list:
         """Get list of available whisper models."""
-        return self.file_handler.get_available_models()
+        return FileHandler.get_available_models()
 
     def cleanup(self):
         """Clean up temporary files."""

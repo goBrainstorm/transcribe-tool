@@ -17,3 +17,6 @@ ollama>=0.6.1
 
 # Token counting
 tiktoken>=0.10.0
+
+# Terminal user interface
+textual

@@ -2,6 +2,11 @@ from pathlib import Path
 import hashlib
 from datetime import datetime
 import xml.etree.ElementTree as ET
+from typing import Optional
+
+from app_logging import get_logger
+
+logger = get_logger(__name__)
 
 
 AUDIO_EXTENSIONS = {'.mp3', '.wav', '.ogg', '.m4a', '.flac', '.aac', '.opus', '.wma'}
@@ -17,7 +22,7 @@ class FileHandler:
 
     def __init__(self):
         """Initialize the FileHandler instance."""
-        pass  # TODO: add functionality to create new individual output files
+        self._input_audio_files: list[Path] = []
 
     @staticmethod
     def _generate_transcription_id(transcription: str) -> str:
@@ -25,22 +30,27 @@ class FileHandler:
         transcription = transcription or ""
         return f"ID-{hashlib.md5(transcription.encode()).hexdigest()[:8]}"
 
-    def get_available_models(self) -> list:
+    
+    # BUG: Does not work with faster-whisper models.
+    @staticmethod
+    def get_available_models() -> list:
         """
         Get list of available whisper models (locally downloaded).
 
         Returns:
             list: List of model names found in the models directory.
         """
-        if not self.DEFAULT_MODEL_PATH.exists():
+        if not FileHandler.DEFAULT_MODEL_PATH.exists():
+            logger.error("Models directory not found: %s", FileHandler.DEFAULT_MODEL_PATH)
             return []
 
         models = []
-        for d in self.DEFAULT_MODEL_PATH.iterdir():
+        for d in FileHandler.DEFAULT_MODEL_PATH.iterdir():
             if d.is_dir() and (d / "model.bin").exists():
                 models.append(d.name)
         return sorted(models)
 
+    
     def create_output_file(self) -> bool:
         """
         Create an XML file at OUTPUT_FILE_PATH with the base transcriptions structure.
@@ -56,17 +66,17 @@ class FileHandler:
             self.DEFAULT_OUTPUT_FOLDER.mkdir(parents=True, exist_ok=True)
 
             # Create XML content with base structure
-            xml_content = '<?xml version="1.0" encoding="UTF-8"?>\n<transcriptions>\n</transcriptions>'
+            xml_content = '<?xml version="1.0" encoding="UTF-8"?>\n<entries>\n</entries>'
 
             # Write the XML file
             self.OUTPUT_FILE_PATH.write_text(xml_content, encoding='utf-8')
 
             return True
         except (IOError, OSError) as e:
-            print(f"Error creating file: {e}")
+            logger.error("Error creating output file: %s", e)
             return False
 
-    def get_entry(self, entry_id: str) -> ET.Element:
+    def get_entry(self, entry_id: str) -> Optional[ET.Element]:
         """
         Get an entry by its ID.
         
@@ -86,7 +96,8 @@ class FileHandler:
         except ET.ParseError:
             return None
 
-    def get_transcription_content(self, entry_id: str) -> str:
+    # TODO: Remove this helper once all callers use get_content_from_entry_id().
+    def get_transcription_from_entry_id(self, entry_id: str) -> Optional[str]:
         """
         Get the transcription content from an entry by its ID.
         
@@ -106,6 +117,22 @@ class FileHandler:
         
         return transcription_elem.text.strip()
 
+    def get_content_from_entry_id(self, entry_id: str, content_type: str) -> Optional[str]:
+        """
+        Get the content from an entry by its ID.
+        
+        Args:
+            entry_id: The ID of the entry to retrieve content from.
+            content_type: The type of content to retrieve.
+        """
+        entry = self.get_entry(entry_id)
+        if entry is None:
+            return None
+        content_element = entry.find(content_type)
+        if content_element is None or content_element.text is None:
+            return None
+        return content_element.text.strip()
+
     def add_entry(
         self,
         transcription: str = "",
@@ -113,7 +140,7 @@ class FileHandler:
         date: str = None,
         language: str = None,
         translation: str = None,
-        filename: str = None
+        filename: str = ""
     ) -> bool:
         """
         Add an entry to the output XML file with the structured format.
@@ -134,6 +161,7 @@ class FileHandler:
         Raises:
             ValueError: If date is invalid and transcription is empty.
         """
+        # TODO: Consider deriving date from audio metadata or filename when available.
         def valid_date(date_str: str) -> bool:
             """Check if date string is a valid ISO format datetime."""
             if date_str is None:
@@ -165,7 +193,7 @@ class FileHandler:
             root = tree.getroot()
         except ET.ParseError:
             # File might be malformed or empty, try to create root element
-            root = ET.Element("transcriptions")
+            root = ET.Element("entries")
             tree = ET.ElementTree(root)
 
         # Create new entry element
@@ -176,16 +204,17 @@ class FileHandler:
             entry.set("filename", filename)
 
         # 1. Transcription element (with attributes)
-        trans_elem = ET.SubElement(entry, "transcription")
+        transcription_elem = ET.SubElement(entry, "transcription")
         if language:
-            trans_elem.set("language", language)
+            transcription_elem.set("language", language)
         if model:
-            trans_elem.set("model", model)
-        trans_elem.text = f"\n{transcription.strip()}\n" if transcription else ""
+            # TODO: Persist canonical full model identifiers (for example, faster-whisper-tiny.en).
+            transcription_elem.set("model", model)
+        transcription_elem.text = f"\n{transcription.strip()}\n" if transcription else ""
 
         # 2. Translation element
-        trans_elem = ET.SubElement(entry, "translation")
-        trans_elem.text = f"\n{translation.strip()}\n" if translation else ""
+        translation_elem = ET.SubElement(entry, "translation")
+        translation_elem.text = f"\n{translation.strip()}\n" if translation else ""
 
         # 3. Extracted Information
         extracted_info = ET.SubElement(entry, "extracted_information")
@@ -199,11 +228,11 @@ class FileHandler:
 
         # Write back to file with proper formatting
         try:
-            ET.indent(tree, space="    ")
+            ET.indent(tree)
             tree.write(self.OUTPUT_FILE_PATH, encoding="unicode", xml_declaration=True)
             return True
         except (IOError, OSError) as e:
-            print(f"Error writing entry: {e}")
+            logger.error("Error writing entry: %s", e)
             return False
 
     def update_entry(
@@ -243,7 +272,7 @@ class FileHandler:
         # Find the entry
         entry = root.find(f".//entry[@id='{entry_id}']")
         if entry is None:
-            print(f"Entry with ID {entry_id} not found.")
+            logger.warning("Entry with ID %s not found.", entry_id)
             return False
 
         # Update Transcription
@@ -262,6 +291,7 @@ class FileHandler:
             if language is not None:
                 trans_elem.set("language", language)
             if transcription_model is not None:
+                # TODO: Persist canonical full model identifiers for transcription updates.
                 trans_elem.set("model", transcription_model)
 
         # Update Translation
@@ -273,6 +303,7 @@ class FileHandler:
         if trans_l_elem is not None and translation is not None:
             trans_l_elem.text = f"\n{translation.strip()}\n" if translation else ""
             if translation_model is not None:
+                # TODO: Persist canonical full model identifiers for translation updates.
                 trans_l_elem.set("model", translation_model)
 
         # Update Extracted Information (Summary and Tags)
@@ -306,7 +337,7 @@ class FileHandler:
             tree.write(self.OUTPUT_FILE_PATH, encoding="unicode", xml_declaration=True)
             return True
         except (IOError, OSError) as e:
-            print(f"Error writing entry: {e}")
+            logger.error("Error writing entry: %s", e)
             return False
 
     def get_last_entry_id(self) -> str:
@@ -316,22 +347,31 @@ class FileHandler:
         Returns:
             str: The ID of the last entry, or None if no entries exist.
         """
-        if not self.OUTPUT_FILE_PATH.exists():
-            return None
-
-        try:
-            tree = ET.parse(self.OUTPUT_FILE_PATH)
-            root = tree.getroot()
-        except ET.ParseError:
-            return None
-
-        entries = root.findall("entry")
+        entries = self.get_all_entries()
         if not entries:
             return None
 
         return entries[-1].get("id")
 
-    def get_all_entries_without_translation(self) -> list:
+    def get_all_entries(self) -> list:
+        """
+        Get all entries from the output XML file.
+        
+        Returns:
+            list: List of entry elements.
+        """
+        if not self.OUTPUT_FILE_PATH.exists():
+            logger.error("Output file not found: %s", self.OUTPUT_FILE_PATH)
+            return []
+        try:
+            tree = ET.parse(self.OUTPUT_FILE_PATH)
+            root = tree.getroot()
+            return root.findall("entry")
+        except ET.ParseError:
+            logger.error("Failed to parse output file: %s", self.OUTPUT_FILE_PATH)
+            return []
+
+    def get_all_entry_ids_without_translation(self) -> list:
         """
         Get all entries without a translation.
         
@@ -340,21 +380,50 @@ class FileHandler:
         """
         if not self.OUTPUT_FILE_PATH.exists():
             return []
-        tree = ET.parse(self.OUTPUT_FILE_PATH)
-        root = tree.getroot()
+        try:
+            tree = ET.parse(self.OUTPUT_FILE_PATH)
+            root = tree.getroot()
+        except ET.ParseError:
+            logger.error("Failed to parse output file: %s", self.OUTPUT_FILE_PATH)
+            return []
         
-        print("Getting all entries without translation: ")
+        logger.debug("Getting all entries without translation...")
         entries_without_translation = []
         for entry in root.findall("entry"):
             translation_elem = entry.find("translation")
             # Check if translation element doesn't exist or has no text or only whitespace
             if translation_elem is None or not translation_elem.text or translation_elem.text.strip() == "":
                 entries_without_translation.append(entry.get("id"))
-
-        print("\n" * 2, "-" *40, "\n" * 2)
         
         return entries_without_translation
     
+    def get_all_entry_ids_with_translation(self, debug: bool = False) -> list:
+        """
+        Get all entries with a translation.
+        
+        Returns:
+            list: List of entry IDs that contain non-empty translation text.
+        """
+        if not self.OUTPUT_FILE_PATH.exists():
+            return []
+        try:
+            tree = ET.parse(self.OUTPUT_FILE_PATH)
+            root = tree.getroot()
+        except ET.ParseError:
+            logger.error("Failed to parse output file: %s", self.OUTPUT_FILE_PATH)
+            return []
+        
+        if debug:
+            logger.debug("Getting all entries with translation...")
+        entries_with_translation = []
+        for entry in root.findall("entry"):
+            translation_elem = entry.find("translation")
+            # Check if translation element doesn't exist or has no text or only whitespace
+            if translation_elem is not None and translation_elem.text is not None and translation_elem.text.strip() != "":
+                entries_with_translation.append(entry.get("id"))
+        
+        return entries_with_translation
+
     def get_transcribed_filenames(self) -> set[str]:
         """
         Get all filenames that have already been transcribed.
@@ -409,15 +478,60 @@ class FileHandler:
         Returns:
             list[Path]: List of Path objects for audio files found in the input directory.
         """
+        return self.refresh_input_audio_files()
+
+    def refresh_input_audio_files(self) -> list[Path]:
+        """
+        Scan the input directory and update in-memory file state.
+
+        Returns:
+            list[Path]: Sorted list of detected audio files.
+        """
         if not self.DEFAULT_INPUT_FOLDER.exists():
+            self._input_audio_files = []
             return []
-        
+
         audio_files = []
         for file_path in self.DEFAULT_INPUT_FOLDER.iterdir():
             if file_path.is_file() and file_path.suffix.lower() in AUDIO_EXTENSIONS:
                 audio_files.append(file_path)
-        
-        return sorted(audio_files)
+
+        # TODO: Reconfirm whether deterministic ordering should be configurable.
+        self._input_audio_files = sorted(audio_files)
+        return list(self._input_audio_files)
+
+    def get_cached_input_audio_files(self) -> list[Path]:
+        """
+        Return the currently cached audio file list without rescanning.
+        """
+        return list(self._input_audio_files)
+
+    def get_audio_file_info(self, file_path: Path) -> dict:
+        """
+        Return normalized metadata for one audio file path.
+        """
+        resolved = Path(file_path)
+        size_bytes = resolved.stat().st_size if resolved.exists() else 0
+        return {
+            "path": resolved,
+            "name": resolved.name,
+            "stem": resolved.stem,
+            "suffix": resolved.suffix.lower(),
+            "size_bytes": size_bytes,
+        }
+
+    def get_pending_audio_files(self, skip_existing: bool = True) -> list[Path]:
+        """
+        Return audio files that should be processed next.
+
+        This uses cached scan state if available, otherwise it performs a scan.
+        """
+        audio_files = self._input_audio_files or self.refresh_input_audio_files()
+        if not skip_existing:
+            return list(audio_files)
+
+        transcribed_filenames = self.get_transcribed_filenames()
+        return [file_path for file_path in audio_files if file_path.name not in transcribed_filenames]
 
     def transcribe_all_input_files(
         self,
@@ -451,7 +565,7 @@ class FileHandler:
         audio_files = self.get_input_audio_files()
         
         if not audio_files:
-            print("No audio files found in input directory.")
+            logger.info("No audio files found in input directory.")
             return []
         
         # Filter out already transcribed files if skip_existing is True
@@ -460,16 +574,16 @@ class FileHandler:
             audio_files = [f for f in audio_files if f.name not in transcribed_filenames]
             
             if not audio_files:
-                print("All files in input directory have already been transcribed.")
+                logger.info("All files in input directory have already been transcribed.")
                 return []
             
-            print(f"Found {len(audio_files)} new audio file(s) to transcribe:")
+            logger.info("Found %s new audio file(s) to transcribe:", len(audio_files))
         else:
-            print(f"Found {len(audio_files)} audio file(s) to transcribe:")
+            logger.info("Found %s audio file(s) to transcribe:", len(audio_files))
         
         for audio_file in audio_files:
-            print(f"  - {audio_file.name}")
-        print("-" * 40)
+            logger.info("  - %s", audio_file.name)
+        logger.info("%s", "-" * 40)
         
         results = []
         
@@ -480,7 +594,7 @@ class FileHandler:
         # Use context manager to handle cleanup
         with TranscribeTool(model_size=model_size) as tool:
             for audio_file in audio_files:
-                print(f"\nProcessing: {audio_file.name}")
+                logger.info("\nProcessing: %s", audio_file.name)
                 
                 result = {
                     "file": audio_file,
@@ -504,13 +618,13 @@ class FileHandler:
                     result["language"] = transcription_result["language"]
                     result["success"] = True
                     
-                    print(f"Transcription: {transcription_result['text'][:100]}...")
+                    logger.info("Transcription: %s...", transcription_result["text"][:100])
                     
                     # Save to XML if requested
                     if save:
                         transcription_id = self._generate_transcription_id(transcription_result["text"])
                         if self.entry_exists_by_filename(audio_file.name) or self.entry_exists_by_id(transcription_id):
-                            print("Skipping save: entry already exists in output.")
+                            logger.info("Skipping save: entry already exists in output.")
                         else:
                             add_success = self.add_entry(
                                 transcription=transcription_result["text"],
@@ -520,22 +634,22 @@ class FileHandler:
                             )
                             
                             if add_success:
-                                print(f"Saved to {self.OUTPUT_FILE_PATH}")
+                                logger.info("Saved to %s", self.OUTPUT_FILE_PATH)
                             else:
-                                print("Warning: Failed to save transcription to XML")
+                                logger.warning("Failed to save transcription to XML.")
                 
                 except Exception as e:
                     result["error"] = str(e)
-                    print(f"Error processing {audio_file.name}: {e}")
+                    logger.error("Error processing %s: %s", audio_file.name, e)
                 
                 results.append(result)
         
         # Summary
-        print("\n" + "=" * 40)
-        print("Transcription Summary:")
-        print(f"Total files: {len(audio_files)}")
-        print(f"Successful: {sum(1 for r in results if r['success'])}")
-        print(f"Failed: {sum(1 for r in results if not r['success'])}")
-        print("=" * 40)
+        logger.info("\n%s", "=" * 40)
+        logger.info("Transcription Summary:")
+        logger.info("Total files: %s", len(audio_files))
+        logger.info("Successful: %s", sum(1 for r in results if r["success"]))
+        logger.info("Failed: %s", sum(1 for r in results if not r["success"]))
+        logger.info("%s", "=" * 40)
         
         return results
