@@ -4,11 +4,13 @@ import argparse
 from pathlib import Path
 from typing import Optional
 
+from app_logging import configure_logging, get_logger
 from file_handling import FileHandler
 from logic import Logic
-from ollama_handler import OllamaHandler
 from transcribe_tool import TranscribeTool
 from LLM_handler import LLMHandler
+
+logger = get_logger(__name__)
 
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
@@ -92,29 +94,30 @@ def list_available_models() -> None:
         print("Run: python download_model.py tiny")
 
 
-def _build_LLM_handler() -> Optional[LLMHandler]:
+def _build_llm_handler() -> Optional[LLMHandler]:
     """Initialize translation dependencies once and return a shared tool."""
     try:
-        # ollama_handler = OllamaHandler()
         return LLMHandler()
     except Exception as exc:
-        print(f"Warning: ({exc})")
+        logger.warning("LLM initialization failed: %s", exc)
         return None
 
 
 def main() -> None:
     """Main entry point."""
     args = parse_args()
+    configure_logging(args.debug)
 
 
-    # TODO: inform user about the models and how to download them
-    # TODO: if no args are provided, print help
+    # TODO: Improve startup guidance for model download and setup.
+    # TODO: Evaluate showing help when no actionable args are provided.
     if args.list_models:
         list_available_models()
         return
 
     file_handler = FileHandler()
-    LLM_handler = _build_LLM_handler()
+    llm_handler: Optional[LLMHandler] = None
+    needs_llm = args.translate or args.summarize
 
     with TranscribeTool(model_size=args.model) as transcribe_tool:
         if args.audio_file:
@@ -128,15 +131,24 @@ def main() -> None:
                 print_result=args.print_result,
                 debug=args.debug,
             )
-            Logic.translate_entries(
-                file_handler=file_handler,
-                LLM_handler=LLM_handler,
-                debug=args.debug,
-            )
+            if needs_llm:
+                llm_handler = _build_llm_handler()
+            if args.translate:
+                Logic.translate_entries(
+                    file_handler=file_handler,
+                    llm_handler=llm_handler,
+                    debug=args.debug,
+                )
+            if args.summarize:
+                Logic.summarize_entries_with_translation(
+                    file_handler=file_handler,
+                    llm_handler=llm_handler,
+                    debug=args.debug,
+                )
             return
 
-        # TODO: args check
-        # TODO: test transcription for files that have not been transcripted
+        # TODO: Validate mutually dependent CLI args.
+        # TODO: Expand checks for partially processed files.
         Logic.transcribe_files_from_folder(
             file_handler=file_handler,
             transcribe_tool=transcribe_tool,
@@ -147,18 +159,20 @@ def main() -> None:
             debug=args.debug,
             skip_existing=True,
         )
-        Logic.translate_entries(
-            file_handler=file_handler,
-            LLM_handler=LLM_handler,
-            debug=args.debug,
-        )
-        # TODO unload translate model
-        Logic.summarize_entries_with_translation(
-            file_handler=file_handler,
-            LLM_handler=LLM_handler,
-            debug=args.debug,
-        )
-        # TODO unload summary model
+        if needs_llm:
+            llm_handler = _build_llm_handler()
+        if args.translate:
+            Logic.translate_entries(
+                file_handler=file_handler,
+                llm_handler=llm_handler,
+                debug=args.debug,
+            )
+        if args.summarize:
+            Logic.summarize_entries_with_translation(
+                file_handler=file_handler,
+                llm_handler=llm_handler,
+                debug=args.debug,
+            )
 
 
 

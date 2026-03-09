@@ -13,6 +13,7 @@ import subprocess
 import os
 import time
 
+from app_logging import get_logger
 import numpy as np
 import torch
 from audio_denoiser.AudioDenoiser import AudioDenoiser
@@ -20,6 +21,8 @@ from audio_denoiser.modules.AudioNoiseModel import AudioNoiseModel
 from faster_whisper import WhisperModel
 
 from file_handling import FileHandler
+
+logger = get_logger(__name__)
 
 
 def load_audio_with_ffmpeg(input_path: Path, sample_rate: int = 16000) -> tuple[torch.Tensor, int]:
@@ -89,6 +92,7 @@ class AudioCleaner:
         # Uses GPU if available, otherwise CPU
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         # Prefer local cache so the app works offline when the model was already downloaded
+        # FIXME(uncertain): This monkey patch is process-global and may affect concurrent users.
         _original = AudioNoiseModel.from_pretrained
         def _from_pretrained_offline_ok(*args, **kwargs):
             try:
@@ -143,7 +147,7 @@ class AudioCleaner:
         audio_int16 = (audio_np * 32767).astype(np.int16)
         wavfile.write(str(output_path), sample_rate, audio_int16)
         elapsed = time.perf_counter() - start
-        print(f"clean_audio() took {elapsed:.2f} s")
+        logger.debug("clean_audio() took %.2f s", elapsed)
         return output_path
 
     def cleanup(self):
@@ -211,7 +215,7 @@ class Transcriber:
 
         if language == "auto":
             language = None
-        # Transcribe using faster-whisper TODO: add more parameters (play around with them)
+        # TODO: Evaluate additional faster-whisper parameters for quality/performance.
         segments_generator, info = self.model.transcribe(
             str(audio_path),
             language=language,
@@ -263,7 +267,6 @@ class TranscribeTool:
         """
         self.cleaner = AudioCleaner(output_dir=temp_dir)
         self.transcriber = Transcriber(model_size=model_size, models_dir=models_dir)
-        self.file_handler = FileHandler()
 
     def process(
         self,
@@ -301,9 +304,10 @@ class TranscribeTool:
             # Step 1: Clean audio if requested and under threshold
             if clean and file_size_bytes > max_denoise_bytes:
                 clean = False
-                print(
-                    f"Skipping denoiser: file is {file_size_bytes / (1024 * 1024):.1f} MB "
-                    f"(limit {max_denoise_mb} MB)."
+                logger.info(
+                    "Skipping denoiser: file is %.1f MB (limit %s MB).",
+                    file_size_bytes / (1024 * 1024),
+                    max_denoise_mb,
                 )
 
             if clean:
@@ -314,20 +318,22 @@ class TranscribeTool:
                 transcribe_path = audio_path
 
             # Step 2: Transcribe
-            transcription = self.transcriber.transcribe(transcribe_path, language=language) # TODO: what happens to tmp file? eg: PosixPath('/tmp/transcribe_clean_5o9fl8al/test-voice_cleaned.wav')
+            # TODO: Evaluate whether cleaned files should be persisted for debugging sessions.
+            transcription = self.transcriber.transcribe(transcribe_path, language=language)
             result["text"] = transcription["text"]
             result["segments"] = transcription["segments"]
             result["language"] = transcription["language"]
-            # TODO: add language_probability to result
+            # TODO: Add language_probability to the public process result.
 
             return result
         finally:
             elapsed = time.perf_counter() - start
-            print(f"process() took {elapsed:.2f} s")
+            logger.debug("process() took %.2f s", elapsed)
 
-    def get_available_models(self) -> list:
+    @staticmethod
+    def get_available_models() -> list:
         """Get list of available whisper models."""
-        return self.file_handler.get_available_models()
+        return FileHandler.get_available_models()
 
     def cleanup(self):
         """Clean up temporary files."""

@@ -1,52 +1,46 @@
-# Transcribe Tool with Whisper
-A tool to transcribe recordings with [**faster-whisper**](https://github.com/SYSTRAN/faster-whisper) (CTranslate2) and [**ffmpeg**](https://ffmpeg.org/).
+# Transcribe Tool
 
-## Idea of the project
-I want to transcribe all of my voice messages that I save for myself. The target is to transcribe them with whisper, then summarize them and save gathered information (information as in ideas, thoughts, location, mood, people, etc.) with a locally running LLM.
+Transcribe audio files with local `faster-whisper`, optionally clean audio first, then optionally translate and summarize with locally running Ollama models. Results are stored in `output/output.xml`.
 
-### Structure of the Project
+## What It Does
 
-```
+- Transcribes one file (`python src/main.py path/to/file.m4a`) or all supported files from `input/` (`python src/main.py`).
+- Optionally denoises audio before transcription.
+- Optionally translates entries missing translations (`--translate`).
+- Optionally summarizes entries that already have translations (`--summarize`).
+- Avoids duplicate XML entries by checking both filename and generated transcription ID.
+
+## Current Project Layout
+
+```text
 transcribe-tool/
+├── config.json
+├── download_model.py
+├── input/
 ├── models/
-│   └── download_model.py   # Model download script
-├── output/                 # Transcription output (XML)
-├── src/
-│   ├── main.py             # CLI entry point
-│   ├── transcribe_tool.py  # Audio cleaning + transcription pipeline
-│   └── file_handling.py    # XML output management
-├── run.sh                  # Convenience runner (creates venv, runs tool)
-└── requirements.txt
+├── output/
+│   └── output.xml
+└── src/
+    ├── app_logging.py
+    ├── file_handling.py
+    ├── LLM_handler.py
+    ├── logic.py
+    ├── main.py
+    ├── ollama_handler.py
+    └── transcribe_tool.py
 ```
 
-### Models
+## Requirements
 
-Models are downloaded from the Systran faster-whisper repositories on Hugging Face
-and stored in clean local folders: `models/<model_name>/`.
+- Python 3.10+
+- `ffmpeg` available on PATH
+- Python packages from `requirements.txt`
+- For LLM features (`--translate`, `--summarize`):
+  - Ollama installed and running (`ollama serve`)
+  - models from `config.json` pulled locally
+- For token counting metadata in Ollama responses: `tiktoken` (optional; generation still works without it)
 
-Supported download targets:
-
-| Size | Notes |
-|------|-------|
-| `tiny`, `tiny.en` | Fastest, least accurate |
-| `base`, `base.en` | Good for quick tests |
-| `small`, `small.en` | Balanced speed/accuracy |
-| `medium`, `medium.en` | Higher accuracy |
-| `large-v1`, `large-v2`, `large-v3` | Larger multilingual models |
-| `distil-large-v2`, `distil-large-v3` | Smaller/faster distilled variants |
-
-`.en` variants are English-only and slightly better for English content.
-`large-v3-turbo` is intentionally excluded from the downloader to keep one model source.
-
-To pre-download a model to the local `models/` directory:
-
-```bash
-python download_model.py tiny
-python download_model.py distil-large-v3
-python download_model.py --list
-```
-
-## Installation
+## Setup
 
 ```bash
 python -m venv .venv
@@ -54,85 +48,126 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Requires `ffmpeg` to be installed on your system.
+Install `ffmpeg` using your OS package manager if it is missing.
 
-## Usage - transcribes all files located in `input/`
+## Whisper Model Download
+
+Models are expected in `models/<model_name>/` and can be downloaded with:
 
 ```bash
-# Basic transcription (after downloading a model, e.g. tiny)
-python src/main.py
+python download_model.py --list
+python download_model.py tiny
+python download_model.py distil-large-v3
+```
 
-# Use a larger model
+## Ollama Configuration
+
+`config.json` controls Ollama integration:
+
+```json
+{
+  "ollama_host": "http://localhost:11434",
+  "translate_model": "translategemma:4b",
+  "summary_model": "qwen3:0.6b",
+  "default_transcribe_model": "tiny"
+}
+```
+
+Pull configured models before using translation/summarization:
+
+```bash
+ollama pull translategemma:4b
+ollama pull qwen3:0.6b
+```
+
+## CLI Usage
+
+### List local whisper models
+
+```bash
+python src/main.py --list-models
+```
+
+### Transcribe all files from `input/`
+
+```bash
+python src/main.py
+```
+
+### Transcribe one file
+
+```bash
+python src/main.py "/absolute/or/relative/path/to/audio.m4a"
+```
+
+### Common options
+
+```bash
+# Use a specific whisper model
 python src/main.py --model large-v3
 
-# Skip noise reduction
+# Hint source language ("auto" is default)
+python src/main.py --language de
+
+# Disable denoising
 python src/main.py --no-clean
+
+# Do not write output.xml
+python src/main.py --no-save
+
+# Print full transcription text to stdout
+python src/main.py --print-result
+
+# Enable debug logging
+python src/main.py --debug
 ```
 
-Transcriptions are saved to `output/output.xml`.
+### Translation and summarization
 
-## TODOs
-### BUGS
-#### OLLAMA does not unload model after use
-I've used the program and qwen was still loaded in gpu. another instance of gpu was too much for my poor gpu.
 ```bash
-ollama ps
-NAME        ID              SIZE      PROCESSOR    CONTEXT    UNTIL              
-qwen3:8b    500a1f067a9f    6.0 GB    100% GPU     4096       3 minutes from now   
-```
-got me this error:
-```
-python3 src/main.py --model large-v3
-Found 4 audio file(s) to process.
-clean_audio() took 0.30 s
-process() took 0.51 s
-Error processing Record-028.aac: CUDA failed with error out of memory
-process() took 0.19 s
-Error processing WhatsApp Audio 2026-02-12 at 12.15.30.ogg: CUDA out of memory. Tried to allocate 24.00 MiB. GPU 0 has a total capacity of 7.60 GiB of which 15.38 MiB is free. Process 3936 has 5.38 GiB memory in use. Including non-PyTorch memory, this process has 2.19 GiB memory in use. Of the allocated memory 217.80 MiB is allocated by PyTorch, and 50.20 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
-process() took 0.13 s
-Error processing schwindelig.aac: CUDA out of memory. Tried to allocate 24.00 MiB. GPU 0 has a total capacity of 7.60 GiB of which 11.38 MiB is free. Process 3936 has 5.38 GiB memory in use. Including non-PyTorch memory, this process has 2.19 GiB memory in use. Of the allocated memory 217.60 MiB is allocated by PyTorch, and 54.40 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
-process() took 0.17 s
-Error processing test-voice.m4a: CUDA out of memory. Tried to allocate 24.00 MiB. GPU 0 has a total capacity of 7.60 GiB of which 11.38 MiB is free. Process 3936 has 5.38 GiB memory in use. Including non-PyTorch memory, this process has 2.19 GiB memory in use. Of the allocated memory 224.63 MiB is allocated by PyTorch, and 47.37 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+# Translate entries that have no translation yet
+python src/main.py --translate
 
-========================================
-Transcription Summary:
-Total files: 4
-Successful: 0
-Failed: 4
-========================================
+# Summarize entries that already have translations
+python src/main.py --summarize
+
+# Typical full post-processing run
+python src/main.py --translate --summarize
 ```
 
-### CODE MARKS
-| File | Message |
-|------|---------|
-| `src/logic.py` | what if text is empty? |
-| `src/ollama_handler.py` | sooooo many returns that could be used...use em :( |
-| `src/file_handling.py` | get date from meta data or title (title is more reliable(valid_date)) |
-| `src/file_handling.py` | test this |
-| `src/file_handling.py` | why sort? |
-| `download_model.py` | what is this shit: Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads. |
-| `src/transcribe_tool.py` | add more parameters (play around with them) |
-| `src/transcribe_tool.py` | what happens to tmp file? eg: PosixPath('/tmp/transcribe_clean_5o9fl8al/test-voice_cleaned.wav') |
-| `src/transcribe_tool.py` | add language_probability to result |
+Important behavior:
 
-### Later implementation ideas
+- `--translate` and `--summarize` are opt-in. They are not run unless explicitly requested.
+- `--summarize` only works on entries that already contain translation text.
 
-- **Different STT Tool**
-  - Try out `https://huggingface.co/Qwen/Qwen3-ASR-1.7B` a model by alibaba
+## Output Format (`output/output.xml`)
 
-- **File metadata model**
-  - Introduce a typed file metadata object (for example, a dataclass) with path, name, extension, size, and status fields.
-  - Use this object across logic/persistence instead of loose dictionaries.
+Each entry is written roughly as:
 
-- **Queue functionality**
-  - Add a queue class (for example, `TranscriptionQueue`) to manage pending/running/failed/completed files.
-  - Support retries, progress status, and optional persistence of queue state.
-  - Make queue processing the default path for folder-based runs.
+```xml
+<entry id="ID-xxxxxxxx" has_date_as_id="0" filename="audio-file.m4a">
+  <transcription language="de" model="tiny">...</transcription>
+  <translation>...</translation>
+  <extracted_information>
+    <tags>
+      <tag />
+    </tags>
+    <summary>...</summary>
+  </extracted_information>
+</entry>
+```
 
-- **Logging and observability**
-  - Replace ad-hoc `print` calls with a unified logger and log levels (debug/info/warning/error).
-  - Add runtime metrics for processing time per file and per stage (cleaning, transcription, translation, XML write).
+## Processing Notes
 
-- **Tests**
-  - Add tests for duplicate detection, pending file filtering, malformed XML handling, and queue behavior.
-  - Add integration tests for single-file and folder processing flows.
+- Supported input extensions: `.mp3`, `.wav`, `.ogg`, `.m4a`, `.flac`, `.aac`, `.opus`, `.wma`
+- Folder mode processes pending files from `input/` and skips already-transcribed filenames by default.
+- Denoising is skipped automatically for large files above `TRANSCRIBE_MAX_DENOISE_MB` (default: `50`).
+- Empty transcription text is treated as a failure and is not saved.
+- If `tiktoken` is missing, Ollama generation continues; token count metadata may be `null`.
+
+## Known Limitations / Follow-Ups
+
+- Ollama model lifecycle (unload behavior) is not actively managed by this project.
+- In `src/ollama_handler.py`, base-name model matching is currently permissive and marked as uncertain in code.
+- In `src/transcribe_tool.py`, a temporary monkey patch around `AudioNoiseModel.from_pretrained` is marked as uncertain in code.
+- No automated tests yet; CLI and runtime behavior are currently validated manually.

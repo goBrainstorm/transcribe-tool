@@ -1,51 +1,21 @@
-"""
-Translate tool for transcribed voice messages.
+"""LLM helper for translation and summarization via local Ollama models."""
 
-This module provides translation with Ollama and the translategemma model.
-"""
-
-from typing import Optional, List, Dict
-import sys
-import os
 import json
-
-if __name__ == "__main__":
-    sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from pathlib import Path
+from typing import Any, Optional
 
 try:
-    # Try relative import first (for package usage)
     from .ollama_handler import OllamaHandler
 except ImportError:
-    try:
-        from ollama_handler import OllamaHandler
-    except ImportError:
-        try:
-            from src.ollama_handler import OllamaHandler
-        except ImportError:
-             # Last resort: check if we can add src to path
-             sys.path.append(os.path.join(os.getcwd(), 'src'))
-             try:
-                 from ollama_handler import OllamaHandler
-             except ImportError:
-                 raise ImportError("Could not import ollama_handler. Please check your python path.")
+    from ollama_handler import OllamaHandler
 
 
 class LLMHandler:
-    """
-    Handler for LLM models.
-    """
-
-    with open('config.json', 'r') as f:
-        config = json.load(f)
-    try:
-        translate_model_name = config['translate_model']
-        summary_model_name = config['summary_model']
-    except KeyError:
-        raise ValueError("Failed to load models from config.json")
+    """High-level wrapper around configured translation and summary models."""
 
     translate_prompt = """
-    Translate the text provided below into english. Maintain the original tone and style.
-    
+    Translate the text provided below into {target_language}. Maintain the original tone and style.
+
     Input Text: {text}
 
     Translation:
@@ -53,29 +23,52 @@ class LLMHandler:
 
     summary_prompt = """
     Summarize the text provided below.
-    
+
     Text to summarize: {text}
-    
+
     Summary:
     """
 
-    def __init__(self):
-        self.handler = OllamaHandler()
+    @staticmethod
+    def _default_config_path() -> Path:
+        return Path(__file__).resolve().parent.parent / "config.json"
+
+    @classmethod
+    def _load_config(cls, config_path: Optional[Path] = None) -> dict[str, Any]:
+        resolved_path = Path(config_path) if config_path is not None else cls._default_config_path()
+        if not resolved_path.exists():
+            raise FileNotFoundError(f"Config file not found: {resolved_path}")
+
+        try:
+            with resolved_path.open("r", encoding="utf-8") as handle:
+                return json.load(handle)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Invalid JSON in config file: {resolved_path}") from exc
+
+    def __init__(self, config_path: Optional[Path] = None):
+        config = self._load_config(config_path)
+        try:
+            self.translate_model_name = config["translate_model"]
+            self.summary_model_name = config["summary_model"]
+        except KeyError as exc:
+            raise ValueError("Missing required model keys in config.json.") from exc
+
+        host = config.get("ollama_host", "http://localhost:11434")
+        self.handler = OllamaHandler(host=host)
+
         self.translate_model = self.handler.ensure_model(self.translate_model_name)
         self.summary_model = self.handler.ensure_model(self.summary_model_name)
-
-        # TODO: add error handling
         if not self.translate_model or not self.summary_model:
-            raise ValueError("Failed to load models")
+            raise ValueError("Failed to load configured Ollama models.")
 
     def translate(self, text: str, target_language: str = "en", prompt: Optional[str] = None) -> str:
         if prompt is None:
             prompt = self.translate_prompt
         prompt = prompt.format(text=text, target_language=target_language)
-        return self.handler.generate(model=self.translate_model_name, prompt=prompt)['response']
+        return self.handler.generate(model=self.translate_model_name, prompt=prompt)["response"]
 
     def summarize(self, text: str, prompt: Optional[str] = None) -> str:
         if prompt is None:
             prompt = self.summary_prompt
         prompt = prompt.format(text=text)
-        return self.handler.generate(model=self.summary_model_name, prompt=prompt)['response']
+        return self.handler.generate(model=self.summary_model_name, prompt=prompt)["response"]

@@ -1,9 +1,12 @@
 from pathlib import Path
 from typing import Optional
 
+from app_logging import get_logger
 from file_handling import FileHandler
 from transcribe_tool import TranscribeTool
 from LLM_handler import LLMHandler
+
+logger = get_logger(__name__)
 
 
 class Logic:
@@ -13,46 +16,46 @@ class Logic:
     def log(message: str, debug: bool = False) -> None:
         """Print debug messages only when debug mode is enabled."""
         if debug:
-            print(message)
+            logger.debug(message)
 
     @staticmethod
     def translate_text(
         text: str,
-        LLM_handler: Optional[LLMHandler],
+        llm_handler: Optional[LLMHandler],
         target_language: str = "en",
         debug: bool = False,
     ) -> Optional[str]:
         """Translate text."""
-        if LLM_handler is None:
+        if llm_handler is None:
             return None
 
         if debug:
             Logic.log(f"Translating text to {target_language}...", debug)
 
         try:
-            return LLM_handler.translate(text, target_language=target_language)
+            return llm_handler.translate(text, target_language=target_language)
         except ConnectionError:
-            print("Warning: Translation skipped -- Ollama is not reachable.")
+            logger.warning("Translation skipped: Ollama is not reachable.")
             return None
         except ValueError as exc:
-            print(f"Warning: Translation skipped -- {exc}")
+            logger.warning("Translation skipped: %s", exc)
             return None
 
     @staticmethod
     def summarize_text(
         text: str,
-        LLM_handler: Optional[LLMHandler],
+        llm_handler: Optional[LLMHandler],
         debug: bool = False,
     ) -> Optional[str]:
         """Summarize text."""
-        if LLM_handler is None:
+        if llm_handler is None:
             return None
         if debug:
             Logic.log(f"Summarizing text...", debug)
         try:
-            return LLM_handler.summarize(text)
+            return llm_handler.summarize(text)
         except Exception as exc:
-            print(f"Warning: Summarization skipped -- {exc}")
+            logger.warning("Summarization skipped: %s", exc)
             return None
 
     @staticmethod
@@ -81,31 +84,47 @@ class Logic:
             clean=clean,
             language=language,
         )
+        transcription_text = result.get("text", "")
+        has_transcription = bool(transcription_text and transcription_text.strip())
+        error_message = None
+
+        if not has_transcription:
+            error_message = "Transcription result is empty."
+            logger.warning("Empty transcription result. Skipping save.")
 
         if save:
             if not file_handler.OUTPUT_FILE_PATH.exists():
                 file_handler.create_output_file()
 
-            transcription_id = file_handler._generate_transcription_id(result["text"]) # TODO: what if text is empty?
-            already_exists = (
-                file_handler.entry_exists_by_filename(audio_path.name)
-                or file_handler.entry_exists_by_id(transcription_id)
-            )
-
-            if already_exists:
-                Logic.log("Skipping save: entry already exists in output.", debug)
-            else:
-                saved = file_handler.add_entry(
-                    transcription=result["text"],
-                    model=transcribe_tool.transcriber.model_size,
-                    language=result.get("language", language),
-                    translation=None,
-                    filename=audio_path.name,
+            if has_transcription:
+                transcription_id = file_handler._generate_transcription_id(transcription_text)
+                already_exists = (
+                    file_handler.entry_exists_by_filename(audio_path.name)
+                    or file_handler.entry_exists_by_id(transcription_id)
                 )
-                if saved:
-                    Logic.log("Transcription saved to output/output.xml", debug)
+
+                if already_exists:
+                    Logic.log("Skipping save: entry already exists in output.", debug)
                 else:
-                    print("Warning: Failed to save transcription.")
+                    try:
+                        saved = file_handler.add_entry(
+                            transcription=transcription_text,
+                            model=transcribe_tool.transcriber.model_size,
+                            language=result.get("language", language),
+                            translation=None,
+                            filename=audio_path.name,
+                        )
+                    except ValueError as exc:
+                        saved = False
+                        error_message = f"Failed to save transcription: {exc}"
+                        logger.warning(error_message)
+
+                    if saved:
+                        Logic.log("Transcription saved to output/output.xml", debug)
+                    else:
+                        if error_message is None:
+                            error_message = "Failed to save transcription."
+                        logger.warning("Failed to save transcription.")
 
         if print_result:
             print("\nTranscription:")
@@ -113,37 +132,37 @@ class Logic:
             print("-" * 40)
 
         if result.get("cleaned_path"):
-            print(f"Cleaned audio saved to: {result['cleaned_path']}")
+            logger.info("Cleaned audio saved to: %s", result["cleaned_path"])
 
         return {
             "file": audio_path,
-            "text": result.get("text", ""),
+            "text": transcription_text,
             "segments": result.get("segments", []),
             "language": result.get("language", language),
-            "success": True,
-            "error": None,
+            "success": has_transcription and error_message is None,
+            "error": error_message,
         }
 
     @staticmethod
     def translate_entries(
         file_handler: FileHandler,
-        LLM_handler: Optional[LLMHandler],
+        llm_handler: Optional[LLMHandler],
         debug: bool = False,
     ) -> dict:
         """Translate entries missing translations to English and persist updates."""
-        if LLM_handler is None:
+        if llm_handler is None:
             return {"processed": 0, "translated": 0, "skipped": 0, "failed": 0}
 
         entry_ids = file_handler.get_all_entry_ids_without_translation()
         if not entry_ids:
-            print("No entries require translation.")
+            logger.info("No entries require translation.")
             return {"processed": 0, "translated": 0, "skipped": 0, "failed": 0}
 
         n = len(entry_ids)
-        print(f"Translating {n} entr{'y' if n == 1 else 'ies'}...")
+        logger.info("Translating %s entr%s...", n, "y" if n == 1 else "ies")
         stats = {"processed": len(entry_ids), "translated": 0, "skipped": 0, "failed": 0}
         for i, entry_id in enumerate(entry_ids, 1):
-            print(f"  Entry {i}/{n} (id={entry_id})...")
+            logger.info("  Entry %s/%s (id=%s)...", i, n, entry_id)
             transcription = file_handler.get_transcription_from_entry_id(entry_id)
             if not transcription:
                 stats["skipped"] += 1
@@ -151,7 +170,7 @@ class Logic:
 
             translation = Logic.translate_text(
                 text=transcription,
-                LLM_handler=LLM_handler,
+                llm_handler=llm_handler,
                 target_language="en",
                 debug=debug,
             )
@@ -168,30 +187,34 @@ class Logic:
             else:
                 stats["failed"] += 1
 
-        print(f"Translation done: {stats['translated']} translated, {stats['failed']} failed.")
+        logger.info(
+            "Translation done: %s translated, %s failed.",
+            stats["translated"],
+            stats["failed"],
+        )
         return stats
 
     @staticmethod
     def summarize_entries_with_translation(
         file_handler: FileHandler,
-        LLM_handler: Optional[LLMHandler],
+        llm_handler: Optional[LLMHandler],
         debug: bool = False,
     ) -> dict:
         """Summarize translations."""
-        if LLM_handler is None:
-            print("Warning: Summary tool not found. Skipping summarization.")
+        if llm_handler is None:
+            logger.warning("Summary tool not found. Skipping summarization.")
             return {"processed": 0, "summarized": 0, "skipped": 0, "failed": 0}
 
         entry_ids = file_handler.get_all_entry_ids_with_translation(debug=debug)
         if not entry_ids:
-            print("No entries require summarization.")
+            logger.info("No entries require summarization.")
             return {"processed": 0, "summarized": 0, "skipped": 0, "failed": 0}
 
         n = len(entry_ids)
-        print(f"Summarizing {n} entr{'y' if n == 1 else 'ies'}...")
+        logger.info("Summarizing %s entr%s...", n, "y" if n == 1 else "ies")
         stats = {"processed": len(entry_ids), "summarized": 0, "skipped": 0, "failed": 0}
         for i, entry_id in enumerate(entry_ids, 1):
-            print(f"  Entry {i}/{n} (id={entry_id})...")
+            logger.info("  Entry %s/%s (id=%s)...", i, n, entry_id)
             translation = file_handler.get_content_from_entry_id(entry_id, "translation")
             if not translation:
                 stats["skipped"] += 1
@@ -199,10 +222,14 @@ class Logic:
 
             summary = Logic.summarize_text(
                 text=translation,
-                LLM_handler=LLM_handler,
+                llm_handler=llm_handler,
                 debug=debug,
             )
-            
+
+            if not summary:
+                stats["failed"] += 1
+                continue
+
             updated = file_handler.update_entry(
                 entry_id=entry_id,
                 summary=summary,
@@ -212,7 +239,11 @@ class Logic:
             else:
                 stats["failed"] += 1
 
-        print(f"Summarization done: {stats['summarized']} summarized, {stats['failed']} failed.")
+        logger.info(
+            "Summarization done: %s summarized, %s failed.",
+            stats["summarized"],
+            stats["failed"],
+        )
         return stats
 
     @staticmethod
@@ -232,12 +263,12 @@ class Logic:
 
         if not audio_files:
             if skip_existing:
-                print("No new audio files found in input directory.")
+                logger.info("No new audio files found in input directory.")
             else:
-                print("No audio files found in input directory.")
+                logger.info("No audio files found in input directory.")
             return []
 
-        print(f"Found {len(audio_files)} audio file(s) to process.")
+        logger.info("Found %s audio file(s) to process.", len(audio_files))
 
         results = []
         for audio_file in audio_files:
@@ -253,7 +284,7 @@ class Logic:
                     debug=debug,
                 )
             except Exception as exc:
-                print(f"Error processing {audio_file.name}: {exc}")
+                logger.error("Error processing %s: %s", audio_file.name, exc)
                 result = {
                     "file": audio_file,
                     "text": "",
@@ -265,12 +296,12 @@ class Logic:
 
             results.append(result)
 
-        print("\n" + "=" * 40)
-        print("Transcription Summary:")
-        print(f"Total files: {len(audio_files)}")
-        print(f"Successful: {sum(1 for r in results if r['success'])}")
-        print(f"Failed: {sum(1 for r in results if not r['success'])}")
-        print("=" * 40)
+        logger.info("\n%s", "=" * 40)
+        logger.info("Transcription Summary:")
+        logger.info("Total files: %s", len(audio_files))
+        logger.info("Successful: %s", sum(1 for r in results if r["success"]))
+        logger.info("Failed: %s", sum(1 for r in results if not r["success"]))
+        logger.info("%s", "=" * 40)
 
         return results
 
