@@ -1,6 +1,0 @@
-{
-    "ollama_host": "http://localhost:11434",
-    "translate_model": "translategemma:4b",
-    "summary_model": "qwen3:0.6b",
-    "default_transcribe_model": "tiny"
-}

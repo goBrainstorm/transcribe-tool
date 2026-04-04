@@ -1,22 +1,10 @@
-# Audio noise reduction
-audio-denoiser>=0.1.0
-
-# Fast Whisper transcription backend (CTranslate2-based)
-faster-whisper>=1.2.1
-
-# Audio array handling
-numpy>=1.24.0
-scipy>=1.10.0
-
-# Required by audio-denoiser
-torch>=2.0.0
-torchaudio>=2.0.0
-
-# Ollama integration
-ollama>=0.6.1
-
-# Token counting
-tiktoken>=0.10.0
-
-# Terminal user interface
-textual
+fastapi
+uvicorn[standard]
+sqlmodel
+apscheduler
+python-dotenv
+pydantic-settings
+httpx
+python-multipart
+jinja2
+aiofiles

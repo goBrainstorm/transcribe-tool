@@ -42,3 +42,8 @@ Thumbs.db
 # Logs and temp files
 *.log
 tmp/
+
+# Runtime data (generated at startup)
+data/
+cache/
+*.db

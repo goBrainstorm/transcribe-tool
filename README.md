@@ -1,173 +1,46 @@
-# Transcribe Tool
+# Personal Knowledge Base
 
-Transcribe audio files with local `faster-whisper`, optionally clean audio first, then optionally translate and summarize with locally running Ollama models. Results are stored in `output/output.xml`.
+A self-hosted AI system that ingests voice messages, converts them to structured knowledge, and exposes a conversational interface that can reason over personal history.
+
+Audio files are transcribed, translated, summarized, and semantically indexed. Everything is stored permanently in a vector database and queryable via a chat interface accessible over Tailscale. Raw files are archived to Nextcloud and deleted locally after a configurable number of days.
+
+See **[ROADMAP.md](ROADMAP.md)** for the full architecture and implementation plan.
+
+---
 
 ## What It Does
 
-- Transcribes one file (`python src/main.py path/to/file.m4a`) or all supported files from `input/` (`python src/main.py`).
-- Optionally denoises audio before transcription.
-- Optionally translates entries missing translations (`--translate`).
-- Optionally summarizes entries that already have translations (`--summarize`).
-- Avoids duplicate XML entries by checking both filename and generated transcription ID.
+- Accepts audio file uploads via a web app or local directory
+- Runs a processing pipeline (on a schedule or on demand) that:
+  - Transcribes audio with faster-whisper
+  - Translates, summarizes, and extracts structured information with Gemma-4-E4B via llama.cpp
+  - Stores results in SQLite and a Qdrant vector database
+  - Maintains a 7-day rolling JSON cache for recent entries
+  - Archives raw audio to Nextcloud and deletes local copies after N days
+- Exposes a RAG-augmented chat endpoint that retrieves relevant personal history when answering questions
+- Integrates with Open WebUI as a full chat interface
 
-## Current Project Layout
+---
 
-```text
-transcribe-tool/
-├── config.json
-├── download_model.py
-├── input/
-├── models/
-├── output/
-│   └── output.xml
-└── src/
-    ├── app_logging.py
-    ├── file_handling.py
-    ├── LLM_handler.py
-    ├── logic.py
-    ├── main.py
-    ├── ollama_handler.py
-    └── transcribe_tool.py
-```
+## Stack
 
-## Requirements
+- **Backend**: Python / FastAPI
+- **LLM**: Gemma-4-E4B running in llama.cpp (`llama-server`)
+- **Transcription**: faster-whisper (Phase 1–3); Gemma-4-E4B native audio (Phase 4, pending llama.cpp support)
+- **Vector DB**: Qdrant (Docker)
+- **Metadata DB**: SQLite
+- **Scheduling**: APScheduler
+- **Archive**: Nextcloud (WebDAV)
+- **Remote Access**: Tailscale
+- **Chat UI**: Open WebUI
 
-- Python 3.10+
-- `ffmpeg` available on PATH
-- Python packages from `requirements.txt`
-- For LLM features (`--translate`, `--summarize`):
-  - Ollama installed and running (`ollama serve`)
-  - models from `config.json` pulled locally
-- For token counting metadata in Ollama responses: `tiktoken` (optional; generation still works without it)
+---
 
-## Setup
+## Project Status
 
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
+This project is in active development. See [ROADMAP.md](ROADMAP.md) for phased implementation details.
 
-Install `ffmpeg` using your OS package manager if it is missing.
-
-## Whisper Model Download
-
-Models are expected in `models/<model_name>/` and can be downloaded with:
-
-```bash
-python download_model.py --list
-python download_model.py tiny
-python download_model.py distil-large-v3
-```
-
-## Ollama Configuration
-
-`config.json` controls Ollama integration:
-
-```json
-{
-  "ollama_host": "http://localhost:11434",
-  "translate_model": "translategemma:4b",
-  "summary_model": "qwen3:0.6b",
-  "default_transcribe_model": "tiny"
-}
-```
-
-Pull configured models before using translation/summarization:
-
-```bash
-ollama pull translategemma:4b
-ollama pull qwen3:0.6b
-```
-
-## CLI Usage
-
-### List local whisper models
-
-```bash
-python src/main.py --list-models
-```
-
-### Transcribe all files from `input/`
-
-```bash
-python src/main.py
-```
-
-### Transcribe one file
-
-```bash
-python src/main.py "/absolute/or/relative/path/to/audio.m4a"
-```
-
-### Common options
-
-```bash
-# Use a specific whisper model
-python src/main.py --model large-v3
-
-# Hint source language ("auto" is default)
-python src/main.py --language de
-
-# Disable denoising
-python src/main.py --no-clean
-
-# Do not write output.xml
-python src/main.py --no-save
-
-# Print full transcription text to stdout
-python src/main.py --print-result
-
-# Enable debug logging
-python src/main.py --debug
-```
-
-### Translation and summarization
-
-```bash
-# Translate entries that have no translation yet
-python src/main.py --translate
-
-# Summarize entries that already have translations
-python src/main.py --summarize
-
-# Typical full post-processing run
-python src/main.py --translate --summarize
-```
-
-Important behavior:
-
-- `--translate` and `--summarize` are opt-in. They are not run unless explicitly requested.
-- `--summarize` only works on entries that already contain translation text.
-
-## Output Format (`output/output.xml`)
-
-Each entry is written roughly as:
-
-```xml
-<entry id="ID-xxxxxxxx" has_date_as_id="0" filename="audio-file.m4a">
-  <transcription language="de" model="tiny">...</transcription>
-  <translation>...</translation>
-  <extracted_information>
-    <tags>
-      <tag />
-    </tags>
-    <summary>...</summary>
-  </extracted_information>
-</entry>
-```
-
-## Processing Notes
-
-- Supported input extensions: `.mp3`, `.wav`, `.ogg`, `.m4a`, `.flac`, `.aac`, `.opus`, `.wma`
-- Folder mode processes pending files from `input/` and skips already-transcribed filenames by default.
-- Denoising is skipped automatically for large files above `TRANSCRIBE_MAX_DENOISE_MB` (default: `50`).
-- Empty transcription text is treated as a failure and is not saved.
-- If `tiktoken` is missing, Ollama generation continues; token count metadata may be `null`.
-
-## Known Limitations / Follow-Ups
-
-- Ollama model lifecycle (unload behavior) is not actively managed by this project.
-- In `src/ollama_handler.py`, base-name model matching is currently permissive and marked as uncertain in code.
-- In `src/transcribe_tool.py`, a temporary monkey patch around `AudioNoiseModel.from_pretrained` is marked as uncertain in code.
-- No automated tests yet; CLI and runtime behavior are currently validated manually.
+**Phase 1**: Foundation & Infrastructure — file ingestion, Nextcloud archiving, scheduling  
+**Phase 2**: Processing Pipeline — transcription + LLM post-processing  
+**Phase 3**: Vector DB & RAG — semantic search and chat interface  
+**Phase 4**: Native audio via Gemma-4-E4B (blocked on llama.cpp issue #21325)
